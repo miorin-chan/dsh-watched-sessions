@@ -35,9 +35,7 @@ export function SuperPinArea({ rows, drag, label, currentId, ...rowProps }: Omit
       }}
       onDragLeave={event => { if (left(event)) drag.leaveTop() }}
       onDrop={event => {
-        if (event.defaultPrevented || drag.source === null) return
-        event.preventDefault()
-        drag.dropTop()
+        if (!event.defaultPrevented && drag.dropTop()) event.preventDefault()
       }}
     >
       <div className={clsx(css.heading, adding && css.hint)} role={adding ? 'status' : undefined}>
@@ -92,10 +90,9 @@ export function returnDropHandlers(drag: SuperPinDrag) {
     },
     onDragLeave(event: DragEvent<HTMLElement>) { if (left(event)) drag.leaveList() },
     onDropCapture(event: DragEvent<HTMLElement>) {
-      if (drag.source?.origin !== 'top') return
+      if (!drag.dropList()) return
       event.preventDefault()
       event.stopPropagation()
-      drag.dropList()
     },
   }
 }

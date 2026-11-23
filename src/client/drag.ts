@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { PinLanding, SuperPins } from './super-pins'
 
@@ -16,8 +16,17 @@ export function useSuperPinDrag(enabled: boolean, pins: SuperPins, canPin: (id: 
   const [overTop, setOverTop] = useState(false)
   const [overList, setOverList] = useState(false)
   const [marker, setMarker] = useState<PinLanding | undefined>(undefined)
+  const revealFrame = useRef<number | null>(null)
+
+  const cancelReveal = useCallback(() => {
+    if (revealFrame.current === null) return
+    cancelAnimationFrame(revealFrame.current)
+    revealFrame.current = null
+  }, [])
+  useEffect(() => cancelReveal, [cancelReveal])
 
   function reset(): void {
+    cancelReveal()
     active.current = null
     cancelListDrag.current = undefined
     visitedTop.current = false
@@ -40,7 +49,12 @@ export function useSuperPinDrag(enabled: boolean, pins: SuperPins, canPin: (id: 
     const next = { id, origin }
     active.current = next
     cancelListDrag.current = cancel
-    setSource(next)
+    // Blink can cancel dragstart if opening a drop zone moves the source row
+    // away from the initial press. Show the zone after its source hit test.
+    revealFrame.current = requestAnimationFrame(() => {
+      revealFrame.current = null
+      setSource(next)
+    })
   }
 
   return {
@@ -71,12 +85,13 @@ export function useSuperPinDrag(enabled: boolean, pins: SuperPins, canPin: (id: 
       setOverTop(false)
       setMarker(undefined)
     },
-    dropTop(landing?: PinLanding): void {
+    dropTop(landing?: PinLanding): boolean {
       const session = active.current
-      if (session === null) return
+      if (session === null) return false
       cancelListDrag.current?.()
       reset()
       if (canPin(session.id)) pins.place(session.id, landing)
+      return true
     },
     hoverList(): boolean {
       if (active.current?.origin !== 'top') return false
@@ -86,11 +101,12 @@ export function useSuperPinDrag(enabled: boolean, pins: SuperPins, canPin: (id: 
       return true
     },
     leaveList() { setOverList(false) },
-    dropList(): void {
+    dropList(): boolean {
       const session = active.current
-      if (session?.origin !== 'top') return
+      if (session?.origin !== 'top') return false
       reset()
       pins.unpin(session.id)
+      return true
     },
   }
 }

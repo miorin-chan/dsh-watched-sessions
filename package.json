@@ -1,6 +1,6 @@
 {
   "name": "@miorin/dsh-super-pin",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "license": "MIT",
   "description": "Drag sessions above the sidebar list for quick access.",
