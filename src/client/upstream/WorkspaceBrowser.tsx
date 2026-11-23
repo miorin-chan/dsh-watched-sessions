@@ -1303,6 +1303,23 @@ export function WorkspaceBrowser({
       <span role="status" className={superPinCss.liveStatus}>
         {menuMove && `${menuMove.title || t('session.untitled')}. ${labelSuperPin(menuMove.to === 'top' ? 'pinned' : 'returned')}`}
       </span>
+      {superPinEnabled && (
+        <SuperPinArea
+          rows={superPinRows}
+          drag={superDrag}
+          label={labelSuperPin}
+          currentId={showCurrentInTop ? mainSessionId : undefined}
+          onOpen={guardedOpen}
+          onRenameRequest={requestSessionRename}
+          renderSlot={renderSlot}
+          renderFactorySlot={renderFactorySlot}
+          useContextMenu={useContextMenu}
+          useContextMenuTarget={useContextMenuTarget}
+          useSessionAccess={useSessionAccess}
+          home={home}
+          t={t}
+        />
+      )}
       <div className={clsx(css.sectionHeader, wide && searchSpacingMotionEnabled && css.searchSpacingMotion)} data-sidebar-workspace-header="">
         {wide && (
           <span className={clsx(css.sectionLabel, css.wide, searchExpanded && css.sectionLabelHidden)}>
@@ -1426,26 +1443,7 @@ export function WorkspaceBrowser({
         </Tooltip>
       </div>}
 
-      {superPinEnabled && (
-        <>
-          <SuperPinArea
-            rows={superPinRows}
-            drag={superDrag}
-            label={labelSuperPin}
-            currentId={showCurrentInTop ? mainSessionId : undefined}
-            onOpen={guardedOpen}
-            onRenameRequest={requestSessionRename}
-            renderSlot={renderSlot}
-            renderFactorySlot={renderFactorySlot}
-            useContextMenu={useContextMenu}
-            useContextMenuTarget={useContextMenuTarget}
-            useSessionAccess={useSessionAccess}
-            home={home}
-            t={t}
-          />
-          <SuperPinReturnTarget drag={superDrag} label={labelSuperPin} />
-        </>
-      )}
+      {superPinEnabled && <SuperPinReturnTarget drag={superDrag} label={labelSuperPin} />}
       <div ref={wide ? bindScrollerRef : undefined} className={css.listArea}
         data-sidebar-list-area="" {...returnTargetHandlers}>
         {wide && (normalizedQuery !== ''
