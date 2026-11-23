@@ -1,0 +1,5 @@
+# Activates the bundle. The Host half is inert; the Client half ships through
+# package.json `dsh.client` and carries Super pin.
+- insert:
+    - id: dsh-super-pin
+      name: '@miorin/dsh-super-pin'

@@ -1,0 +1,7 @@
+/node_modules/
+/index.js
+/client.js
+/lib/
+/scripts/build.mjs
+/scripts/sync-types.mjs
+*.tgz
