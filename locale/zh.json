@@ -1,7 +1,7 @@
 {
   "meta": {
-    "title": "超级置顶",
-    "description": "把常用会话拖到侧栏顶部，随时打开。",
+    "title": "常驻会话",
+    "description": "把常用会话拖到侧栏顶部常驻，可以收起，也可以只看需关注的。",
     "detail": "docs/DETAIL.zh.md"
   }
 }

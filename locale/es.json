@@ -1,7 +1,7 @@
 {
   "meta": {
-    "title": "Superanclaje",
-    "description": "Arrastra las sesiones a la parte superior de la barra lateral para acceder a ellas rápidamente.",
+    "title": "Sesiones vigiladas",
+    "description": "Mantén las sesiones elegidas arriba en la barra lateral. Contráelas o muestra solo las que requieren atención.",
     "detail": "docs/DETAIL.es.md"
   }
 }

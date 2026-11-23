@@ -1,5 +1,6 @@
-Arrastra las sesiones dentro de la sección superior para reordenarlas.
-Devuélvelas a la lista normal para quitar el superanclaje.
-Puedes superanclar o desanclar desde el menú **…** de cada sesión o con el botón derecho.
+Arrastra una sesión a la parte superior de la barra lateral para vigilarla y devuélvela a
+la lista normal para dejar de vigilarla.
+La flecha junto a **Vigiladas** alterna entre todas, contraídas y las que requieren atención.
+El menú **…** de la sesión y el botón derecho ofrecen las mismas acciones.
 
-Este cliente conserva los superanclajes y su orden.
+Este cliente conserva las sesiones vigiladas y su orden.

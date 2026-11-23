@@ -1,8 +1,9 @@
-# Super pin
+# Watched sessions
 
 [简体中文](README.zh.md)
 
-Keep frequently used sessions at the top of the DeepSeek Harness session sidebar.
+Keep chosen sessions at the top of the DeepSeek Harness session sidebar, and fold them away
+or show only those needing attention.
 
 ## Install
 
@@ -10,20 +11,27 @@ Keep frequently used sessions at the top of the DeepSeek Harness session sidebar
 
 1. Run `npm ci` in this directory to install dependencies and build the plugin.
 2. In **Plugins** > **Add plugin**, select this directory.
-   The plugin appears as **Super pin**.
+   The plugin appears as **Watched sessions**.
 
 ## Use
 
-1. Open the session sidebar and drag a session into the drop area at the top to super-pin it.
-2. Drag sessions within the top section to reorder them.
-3. Drag a session back into the regular list to remove its super pin.
+1. Open the session sidebar and drag a session to the drop row that appears at the top to watch it.
+2. Drag sessions within the **Watched** section to reorder them.
+3. Drag a session back into the regular list to stop watching it.
 
-Use the session's **…** menu or right-click menu to super-pin and unpin it, or to move it up or down in the top section.
+Use the session's **…** menu or right-click menu to watch it, stop watching it, or move it up or down.
 
-When you remove a super pin, the session reappears in its original workspace according
+The arrow beside **Watched** cycles the section through three views, like the session list toggle:
+all watched sessions, collapsed, and Needs attention.
+Needs attention keeps the current, pinned, and drafted sessions, and those that are running,
+waiting for you, or finished unread.
+The count beside the arrow always shows how many sessions are watched.
+Watching a new session reopens the full section, and reloading the page starts from the full section.
+
+When you stop watching a session, it reappears in its original workspace according
 to its regular pin status and the workspace's usual sort order.
-This client saves the super pins and their order.
-Archiving a session clears its super pin.
+This client saves the watched sessions and their order.
+Archiving a session stops watching it.
 
 The plugin uses the single workspace browser slot.
 While active, it hides decorations and buttons that other plugins add through the native session row slots.

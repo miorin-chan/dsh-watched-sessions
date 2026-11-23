@@ -16,10 +16,10 @@ globalThis.window = {
   __ModuleLoader__: { load(entry) { registration = entry } },
 }
 await import('../client.js')
-assert.equal(registration.id, '@miorin/dsh-super-pin')
+assert.equal(registration.id, '@miorin/dsh-watched-sessions')
 const require = createRequire(import.meta.url)
 const plugin = registration.factory((name: string) => name === '@deepseek-ai/dsh-client-ui-primitives' ? {} : require(name))
-const { canSuperPin, createSuperPins } = plugin.__test
+const { canWatch, createWatched, needsAttention } = plugin.__test
 
 const ids = ['alpha', 'beta', 'gamma']
 const session = (id, extra = {}) => ({ id, blank: false, origin: 'session', ...extra })
@@ -59,6 +59,7 @@ function fixture({ compatible = true, startEmpty = false } = {}) {
     inject: () => ({ ...originalFunctions, hooks, searchResultLimit: compatible ? 20 : undefined }),
   }
   const effects = []
+  const injections = []
   const slotListeners = new Set()
   const menu = new Map()
   const entries = startEmpty ? [] : [native]
@@ -66,6 +67,7 @@ function fixture({ compatible = true, startEmpty = false } = {}) {
   const workspace = observable({ archivedSessionIds: [] })
   function changed() { for (const listener of slotListeners) listener() }
   const ctx = {
+    inject(names, apply) { injections.push({ names, apply }) },
     effect(apply) {
       const dispose = apply()
       effects.push(dispose)
@@ -103,44 +105,44 @@ function fixture({ compatible = true, startEmpty = false } = {}) {
     },
   }
   return {
-    ctx, native, entries, menu, labels, workspace, slotListeners, changed,
+    ctx, native, entries, menu, labels, workspace, slotListeners, changed, injections,
     stop() { for (const dispose of effects.reverse()) dispose() },
   }
 }
 
-test('restores stored pins, preserves visible order, and persists removals', () => {
+test('restores stored sessions, preserves visible order, and persists removals', () => {
   saved = '["beta",null,"alpha","beta",42,""]'
-  const pins = createSuperPins(storage)
+  const watched = createWatched(storage)
   const changes = []
-  const stop = pins.subscribe(() => changes.push([...pins.getSnapshot().ids]))
-  assert.deepEqual(pins.getSnapshot().ids, ['beta', 'alpha'])
-  pins.place('gamma', { id: 'alpha', half: 'before' })
-  pins.place('alpha', { id: 'beta', half: 'before' })
-  pins.place('alpha', { id: 'alpha', half: 'after' })
-  pins.removeArchived(['beta'])
+  const stop = watched.subscribe(() => changes.push([...watched.getSnapshot().ids]))
+  assert.deepEqual(watched.getSnapshot().ids, ['beta', 'alpha'])
+  watched.place('gamma', { id: 'alpha', half: 'before' })
+  watched.place('alpha', { id: 'beta', half: 'before' })
+  watched.place('alpha', { id: 'alpha', half: 'after' })
+  watched.removeArchived(['beta'])
   stop()
   assert.deepEqual(changes, [['beta', 'gamma', 'alpha'], ['alpha', 'beta', 'gamma'], ['alpha', 'gamma']])
-  assert.deepEqual(createSuperPins(storage).getSnapshot().ids, ['alpha', 'gamma'])
+  assert.deepEqual(createWatched(storage).getSnapshot().ids, ['alpha', 'gamma'])
 })
 
-test('menu reordering skips unavailable pins and keeps focus notices out of storage', () => {
+test('menu reordering skips unavailable sessions and keeps focus notices out of storage', () => {
   saved = '["alpha","unavailable","beta"]'
-  const pins = createSuperPins(storage)
+  const watched = createWatched(storage)
   const visible = id => id !== 'unavailable'
-  pins.moveBy('beta', -1, visible)
-  assert.deepEqual(pins.getSnapshot().ids, ['beta', 'alpha', 'unavailable'])
-  const first = pins.getSnapshot()
-  pins.moveBy('beta', -1, visible)
-  assert.equal(pins.getSnapshot(), first)
-  pins.unpin('beta', 'Beta')
-  assert.deepEqual(pins.getSnapshot().menuMove, { id: 'beta', title: 'Beta', to: 'list' })
+  watched.moveBy('beta', -1, visible)
+  assert.deepEqual(watched.getSnapshot().ids, ['beta', 'alpha', 'unavailable'])
+  const first = watched.getSnapshot()
+  watched.moveBy('beta', -1, visible)
+  assert.equal(watched.getSnapshot(), first)
+  watched.unwatch('beta', 'Beta')
+  assert.deepEqual(watched.getSnapshot().menuMove, { id: 'beta', title: 'Beta', to: 'list' })
   assert.equal(saved, '["alpha","unavailable"]')
-  pins.pin('gamma', 'Gamma')
-  assert.deepEqual(pins.getSnapshot().menuMove, { id: 'gamma', title: 'Gamma', to: 'top' })
-  assert.equal(createSuperPins(storage).getSnapshot().menuMove, undefined)
+  watched.watch('gamma', 'Gamma')
+  assert.deepEqual(watched.getSnapshot().menuMove, { id: 'gamma', title: 'Gamma', to: 'top' })
+  assert.equal(createWatched(storage).getSnapshot().menuMove, undefined)
 })
 
-test('ignores missing, blank, subagent, and archived sessions when offering super pin', () => {
+test('ignores missing, blank, subagent, and archived sessions when offering to watch', () => {
   const byId = {
     alpha: session('alpha'),
     blank: session('blank', { blank: true }),
@@ -148,9 +150,9 @@ test('ignores missing, blank, subagent, and archived sessions when offering supe
     archived: session('archived'),
   }
   const list = { byId }
-  assert.equal(canSuperPin(list, ['archived'], 'alpha'), true)
+  assert.equal(canWatch(list, ['archived'], 'alpha'), true)
   for (const id of ['missing', 'blank', 'child', 'archived']) {
-    assert.equal(canSuperPin(list, ['archived'], id), false, id)
+    assert.equal(canWatch(list, ['archived'], id), false, id)
   }
 })
 
@@ -168,17 +170,17 @@ test('waits for the native browser and shares its view store and menu actions', 
     assert.deepEqual(replacement.inject().hooks.shortcuts, f.native.inject().hooks.shortcuts)
     f.changed()
     assert.equal(f.entries.length, 2)
-    const action = f.menu.get('dsh-super-pin.toggle')
+    const action = f.menu.get('dsh-watched-sessions.toggle')
     assert.deepEqual(action.resolve({ sessionId: 'missing' }), [])
     const alpha = { sessionId: 'alpha', displayTitle: 'Alpha' }
     const beta = { sessionId: 'beta', displayTitle: 'Beta' }
-    assert.equal(action.resolve(alpha)[0].label, 'pin')
+    assert.equal(action.resolve(alpha)[0].label, 'watch')
     action.resolve(alpha)[0].run()
     assert.equal(saved, '["alpha"]')
-    assert.deepEqual(action.resolve(alpha).map(item => item.label), ['unpin'])
+    assert.deepEqual(action.resolve(alpha).map(item => item.label), ['unwatch'])
     action.resolve(beta)[0].run()
-    assert.deepEqual(action.resolve(alpha).map(item => item.label), ['unpin', 'moveDown'])
-    assert.deepEqual(action.resolve(beta).map(item => item.label), ['unpin', 'moveUp'])
+    assert.deepEqual(action.resolve(alpha).map(item => item.label), ['unwatch', 'moveDown'])
+    assert.deepEqual(action.resolve(beta).map(item => item.label), ['unwatch', 'moveUp'])
     action.resolve(alpha)[1].run()
     assert.equal(saved, '["beta","alpha"]')
     action.resolve(alpha)[0].run()
@@ -199,6 +201,97 @@ test('keeps the native view active when its binding is incompatible', () => {
   try {
     assert.deepEqual(f.entries, [f.native])
     assert.equal(f.menu.size, 0)
+  } finally {
+    f.stop()
+  }
+})
+
+test('cycles the header view, reopens it for new sessions, and keeps it out of storage', () => {
+  saved = '["alpha","beta"]'
+  const watched = createWatched(storage)
+  const views = []
+  watched.subscribe(() => views.push(watched.getSnapshot().view))
+  assert.equal(watched.getSnapshot().view, 'all')
+  watched.cycleView()
+  watched.cycleView()
+  assert.equal(watched.getSnapshot().view, 'attention')
+  // Reordering, removing, and re-adding a present session keep the partial view.
+  watched.place('beta', { id: 'alpha', half: 'before' })
+  watched.watch('beta', 'Beta')
+  watched.unwatch('alpha', 'Alpha')
+  assert.equal(watched.getSnapshot().view, 'attention')
+  watched.cycleView()
+  watched.cycleView()
+  assert.equal(watched.getSnapshot().view, 'collapsed')
+  // A newly added session must not land in a hidden section.
+  watched.place('gamma')
+  assert.equal(watched.getSnapshot().view, 'all')
+  watched.cycleView()
+  watched.watch('alpha', 'Alpha')
+  assert.equal(watched.getSnapshot().view, 'all')
+  assert.deepEqual(views, ['collapsed', 'attention', 'attention', 'attention', 'all', 'collapsed', 'all', 'collapsed', 'all'])
+  assert.equal(saved, '["beta","gamma","alpha"]')
+  assert.equal(createWatched(storage).getSnapshot().view, 'all')
+})
+
+test('needs attention matches the session list toggle criterion', () => {
+  const list = {
+    byId: {
+      idle: session('idle'), current: session('current'), pinned: session('pinned'), draft: session('draft'),
+      approval: session('approval'), plan: session('plan'), question: session('question'),
+      running: session('running', { running: true }), stopped: session('stopped', { running: true }),
+      unread: session('unread'), parent: session('parent'), quietParent: session('quietParent'),
+      child: session('child', { origin: 'subagent', running: true }), quietChild: session('quietChild', { origin: 'subagent' }),
+    },
+    projectionsBySession: {
+      parent: { values: { subagentCatalog: [{ id: 'child' }] } },
+      quietParent: { values: { subagentCatalog: [{ id: 'quietChild' }] } },
+    },
+  }
+  const statuses = new Map([
+    ['approval', { pendingInteraction: { kind: 'approval' } }],
+    ['plan', { pendingInteraction: { kind: 'plan-review' } }],
+    ['question', { pendingInteraction: { kind: 'question' } }],
+    ['stopped', { running: false }],
+    ['unread', { completionUnread: true }],
+    ['idle', { running: false, completionUnread: false }],
+  ])
+  const context = { list, statuses, pinned: new Set(['pinned']), current: 'current', drafts: new Set(['draft']) }
+  for (const id of ['current', 'pinned', 'draft', 'approval', 'plan', 'question', 'running', 'unread', 'parent']) {
+    assert.equal(needsAttention(id, context), true, id)
+  }
+  // The live status outranks the catalog's running flag, and idle children leave the parent quiet.
+  for (const id of ['idle', 'stopped', 'quietParent', 'missing']) {
+    assert.equal(needsAttention(id, context), false, id)
+  }
+  assert.equal(needsAttention('draft', { ...context, drafts: undefined }), false)
+})
+
+test('passes the optional draft service to the browser and releases it', () => {
+  saved = null
+  const f = fixture()
+  plugin.apply(f.ctx)
+  try {
+    const drafts = f.ctx.slots.entriesOfSlot()[0].inject().hooks.watchedDrafts
+    assert.deepEqual([...drafts.getSnapshot()], [])
+    const [{ names, apply }] = f.injections
+    assert.deepEqual(names, ['sessionDraftIndicators'])
+    let notify
+    const disposers = []
+    const service = { getSnapshot: () => new Set(['alpha']), subscribe(listener) { notify = listener; return () => { notify = undefined } } }
+    apply({ get: () => service, effect(run) { disposers.push(run()) } })
+    let changes = 0
+    const stop = drafts.subscribe(() => { changes += 1 })
+    assert.deepEqual([...drafts.getSnapshot()], ['alpha'])
+    notify()
+    for (const dispose of disposers) dispose()
+    stop()
+    assert.equal(changes, 2)
+    assert.equal(notify, undefined)
+    assert.deepEqual([...drafts.getSnapshot()], [])
+    // A provider without the snapshot contract is ignored.
+    apply({ get: () => ({ subscribe() {} }), effect() { throw new Error('unexpected effect') } })
+    assert.deepEqual([...drafts.getSnapshot()], [])
   } finally {
     f.stop()
   }

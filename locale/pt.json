@@ -1,7 +1,7 @@
 {
   "meta": {
-    "title": "Superfixação",
-    "description": "Arraste as sessões para o topo da barra lateral para acessá-las rapidamente.",
+    "title": "Sessões acompanhadas",
+    "description": "Mantenha as sessões escolhidas no topo da barra lateral. Recolha-as ou mostre só as que exigem atenção.",
     "detail": "docs/DETAIL.pt.md"
   }
 }

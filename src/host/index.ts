@@ -1,2 +1,2 @@
-/** Host half of `dsh-super-pin`; the Client module owns the behavior. */
+/** Host half of `dsh-watched-sessions`; the Client module owns the behavior. */
 export function apply() {}

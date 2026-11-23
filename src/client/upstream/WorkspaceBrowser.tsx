@@ -44,19 +44,22 @@ import {
 import { ProjectRowItem, SearchResultItem, SessionNodeItem } from '@deepseek-ai/dsh-client-ui-workspace/src/client/rows/Rows.tsx'
 import type { SessionGroupBy } from '@deepseek-ai/dsh-client-ui-workspace/src/client/stores.ts'
 import css from '@deepseek-ai/dsh-client-ui-workspace/src/client/rows/WorkspaceBrowser.module.css'
-import { useSuperPinDrag, type SuperPinDrag } from '../drag'
-import type { SuperPinTranslate } from '../labels'
-import { canSuperPin, type SuperPins } from '../super-pins'
-import { returnDropHandlers, SuperPinArea, SuperPinReturnTarget } from '../super-pin-area'
-import superPinCss from '../super-pin.module.css'
+import type { DraftSource } from '../drafts'
+import { useWatchDrag, type WatchDrag } from '../drag'
+import type { WatchedTranslate } from '../labels'
+import { canWatch, type Watched } from '../watched'
+import { needsAttention } from '../attention'
+import { returnDropHandlers, WatchedArea, WatchedReturnTarget, watchedReturnClass } from '../watched-area'
+import watchedCss from '../watched.module.css'
 
 // @deepseek-ai/dsh-client-ui-workspace 0.2.2-rc.5, src/client/stores.ts: FLAT_SESSION_ORDER_KEY.
 const FLAT_SESSION_ORDER_KEY = '__flat_session_order__'
 
-export type SuperPinBrowserProps = WorkspaceBrowserProps & {
-  pins: SuperPins
-  useSuperPins: import('@deepseek-ai/dsh-client-ui-slots').SnapshotSelectorHook<ReturnType<SuperPins['getSnapshot']>>
-  labelSuperPin: SuperPinTranslate
+export type WatchedBrowserProps = WorkspaceBrowserProps & {
+  watched: Watched
+  useWatched: import('@deepseek-ai/dsh-client-ui-slots').SnapshotSelectorHook<ReturnType<Watched['getSnapshot']>>
+  useWatchedDrafts: import('@deepseek-ai/dsh-client-ui-slots').SnapshotSelectorHook<ReturnType<DraftSource['getSnapshot']>>
+  labelWatched: WatchedTranslate
 }
 
 /**
@@ -302,7 +305,7 @@ type SessionTreeProps = Pick<
   /** Registry-global pin and archive sets plus the archived-visibility choice. */
   rowState: SessionRowState
   excluded: ReadonlySet<SessionId>
-  superDrag: SuperPinDrag
+  watchDrag: WatchDrag
   /** Switch the archived filter back to the default hide-archived view. */
   onLeaveArchivedOnly: () => void
   /** Open the rename dialog from a row title double-click. */
@@ -332,7 +335,7 @@ function EmptySessions({ rowState, onLeaveArchivedOnly, t }: Pick<SessionTreePro
 /** The scrolling session tree; unmounting drops the sessions subscription and the session watermarks. */
 function SessionTree({
   list, useSessionStatus, startSession, open, workspaces, ungroupedSessionIds,
-  rowState, excluded, superDrag, onLeaveArchivedOnly,
+  rowState, excluded, watchDrag, onLeaveArchivedOnly,
   workspaceReady, animationResetKey, usePanelInfo, useSessionAccess, useWorkspaceAccess,
   onSessionRenameRequest,
   renderSlot, renderFactorySlot, useContextMenuTarget, useContextMenu,
@@ -619,10 +622,10 @@ function SessionTree({
             start: () => {
               sessionDropCommitted.current = false
               setDrag({ accountKey: group.key, sessionId: node.id, pinned: node.pinned, over: null })
-              superDrag.beginList(node.id, () => { setDrag(null) })
+              watchDrag.beginList(node.id, () => { setDrag(null) })
             },
             active: compatibleTarget,
-            marker: !superDrag.overTop && sameGroupDrag && drag.over?.id === node.id ? drag.over.half : null,
+            marker: !watchDrag.overTop && sameGroupDrag && drag.over?.id === node.id ? drag.over.half : null,
             hover: (half: 'before' | 'after') => {
             /* v8 ignore next -- narrowing guard: Rows gates hover on `active`, which is false while the drag state is null. */
               setDrag(d => (d === null ? d : {
@@ -635,7 +638,7 @@ function SessionTree({
               commitSessionDrag(drag, { id: node.id, half: normalizeHalf(half) })
             },
             end: () => {
-              const allowFallback = superDrag.endList(node.id)
+              const allowFallback = watchDrag.endList(node.id)
               if (allowFallback && drag?.over) commitSessionDrag(drag, drag.over)
               else setDrag(null)
               sessionDropCommitted.current = false
@@ -712,7 +715,7 @@ function SessionTree({
 
 /** The flat "In one list" body: every session is one draggable top-level row. */
 function FlatList({
-  list, sessionIds, rowState, excluded, superDrag, onLeaveArchivedOnly, useSessionStatus, useSessionAccess, open, onSessionRenameRequest,
+  list, sessionIds, rowState, excluded, watchDrag, onLeaveArchivedOnly, useSessionStatus, useSessionAccess, open, onSessionRenameRequest,
   usePanelInfo, setSessionOrder, workspaceReady, animationResetKey,
   revealSessionId, onSessionRevealed, renderSlot, renderFactorySlot, useContextMenuTarget, useContextMenu, home, t,
 }: Pick<
@@ -731,7 +734,7 @@ function FlatList({
   | 'onSessionRevealed'
   | 'rowState'
   | 'excluded'
-  | 'superDrag'
+  | 'watchDrag'
   | 'onLeaveArchivedOnly'
   | 'home'
   | 't'
@@ -796,10 +799,10 @@ function FlatList({
                 start: () => {
                   dropCommitted.current = false
                   setDrag({ accountKey: FLAT_SESSION_ORDER_KEY, sessionId: node.id, pinned: node.pinned, over: null })
-                  superDrag.beginList(node.id, () => { setDrag(null) })
+                  watchDrag.beginList(node.id, () => { setDrag(null) })
                 },
                 active,
-                marker: !superDrag.overTop && active && drag.over?.id === node.id ? drag.over.half : null,
+                marker: !watchDrag.overTop && active && drag.over?.id === node.id ? drag.over.half : null,
                 hover: (half) => {
                   setDrag(current => current === null ? current : {
                     ...current, over: { id: node.id, half: normalizeHalf(half) },
@@ -809,7 +812,7 @@ function FlatList({
                   if (drag !== null) commitDrag(drag, { id: node.id, half: normalizeHalf(half) })
                 },
                 end: () => {
-                  const allowFallback = superDrag.endList(node.id)
+                  const allowFallback = watchDrag.endList(node.id)
                   if (allowFallback && drag?.over) commitDrag(drag, drag.over)
                   else setDrag(null)
                   dropCommitted.current = false
@@ -961,8 +964,8 @@ export function WorkspaceBrowser({
   requestAddWorkspace,
   closeAddWorkspace,
   renderSlot, renderFactorySlot, useContextMenuTarget, useContextMenu,
-  t, pins, useSuperPins, labelSuperPin,
-}: SuperPinBrowserProps) {
+  t, watched, useWatched, useWatchedDrafts, labelWatched,
+}: WatchedBrowserProps) {
   const home = useHostInfo(info => info.home)
   const shortcuts = useShortcuts(rows => rows)
   const searchShortcut = shortcuts.find(row => row.id === 'session.search')
@@ -1131,26 +1134,34 @@ export function WorkspaceBrowser({
   }
   const [revealSessionId, setRevealSessionId] = useState<SessionId | undefined>(undefined)
   const normalizedQuery = sanitizeSearchQuery(query).trim()
-  const superPinEnabled = wide && archivedFilter !== 'only' && normalizedQuery === ''
-  const { ids: savedSuperPins, menuMove } = useSuperPins(state => state)
+  const watchEnabled = wide && archivedFilter !== 'only' && normalizedQuery === ''
+  const { ids: savedWatched, view: watchedView, menuMove } = useWatched(state => state)
   const browserRef = useRef<HTMLDivElement | null>(null)
   const previousMenuMove = useRef(menuMove)
-  const superPinnedIds = useMemo(() => superPinEnabled
-    ? savedSuperPins.filter(id => canSuperPin(list, archivedSessionIds, id)) : [],
-  [superPinEnabled, savedSuperPins, list, archivedSessionIds])
-  const excluded = useMemo(() => new Set(superPinnedIds), [superPinnedIds])
-  const superPinStatuses = useSessionStatus(status => status)
-  const superPinRows = useMemo(() => {
-    if (superPinnedIds.length === 0) return []
-    const nodes = new Map(deriveFlat(list, superPinnedIds, rowState, superPinStatuses).map(row => [row.id, row]))
-    return superPinnedIds.flatMap((id) => {
+  const watchedIds = useMemo(() => watchEnabled
+    ? savedWatched.filter(id => canWatch(list, archivedSessionIds, id)) : [],
+  [watchEnabled, savedWatched, list, archivedSessionIds])
+  const excluded = useMemo(() => new Set(watchedIds), [watchedIds])
+  const watchedStatuses = useSessionStatus(status => status)
+  const watchedDrafts = useWatchedDrafts(drafts => drafts)
+  const watchedRows = useMemo(() => {
+    if (watchedIds.length === 0) return []
+    const nodes = new Map(deriveFlat(list, watchedIds, rowState, watchedStatuses).map(row => [row.id, row]))
+    return watchedIds.flatMap((id) => {
       const row = nodes.get(id)
       return row === undefined ? [] : [row]
     })
-  }, [list, rowState, superPinStatuses, superPinnedIds])
-  const superDrag = useSuperPinDrag(superPinEnabled, pins, id => canSuperPin(list, archivedSessionIds, id))
+  }, [list, rowState, watchedStatuses, watchedIds])
+  const watchDrag = useWatchDrag(watchEnabled, watched, id => canWatch(list, archivedSessionIds, id))
   const showCurrentInTop = usePanelInfo(info => info.activePanelId === null)
-  const returnTargetHandlers = returnDropHandlers(superDrag)
+  const watchedCurrentId = showCurrentInTop ? mainSessionId : undefined
+  const watchedAttention = useMemo(() => {
+    const context = {
+      list, statuses: watchedStatuses, pinned: new Set(pinnedSessionIds), current: watchedCurrentId, drafts: watchedDrafts,
+    }
+    return new Set(watchedIds.filter(id => needsAttention(id, context)))
+  }, [list, watchedStatuses, pinnedSessionIds, watchedCurrentId, watchedDrafts, watchedIds])
+  const returnTargetHandlers = returnDropHandlers(watchDrag)
   const [remoteSearch, setRemoteSearch] = useState<RemoteSearchState>({
     query: '',
     status: 'idle',
@@ -1176,14 +1187,14 @@ export function WorkspaceBrowser({
     const previous = previousMenuMove.current
     previousMenuMove.current = menuMove
     const browser = browserRef.current
-    if (menuMove === undefined || menuMove === previous || browser === null || !superPinEnabled) return
+    if (menuMove === undefined || menuMove === previous || browser === null || !watchEnabled) return
     const document = browser.ownerDocument
     const oldFocus = document.activeElement
     const frame = requestAnimationFrame(() => {
       const focus = document.activeElement
       if (focus !== document.body && focus !== oldFocus) return
       const { id, to } = menuMove
-      const region = to === 'top' ? '[data-dsh-super-pin-area]' : '[data-sidebar-list-area]'
+      const region = to === 'top' ? '[data-dsh-watched-sessions-area]' : '[data-sidebar-list-area]'
       const row = browser.querySelector<HTMLElement>(`${region} [data-row-key="session:${CSS.escape(id)}"]`)
       const workspace = owningGroupKey(workspaces, id)
       const parentMenu = to === 'list' && browser.querySelector<HTMLElement>(
@@ -1193,14 +1204,14 @@ export function WorkspaceBrowser({
       target?.focus()
     })
     return () => { cancelAnimationFrame(frame) }
-  }, [menuMove, superPinEnabled, workspaces])
+  }, [menuMove, watchEnabled, workspaces])
 
   const openSearchResult = (sessionId: SessionId): void => {
     if (archivedSessionIds.includes(sessionId)) {
       notifyArchivedNotOpenable()
       return
     }
-    setRevealSessionId(savedSuperPins.includes(sessionId) ? undefined : sessionId)
+    setRevealSessionId(savedWatched.includes(sessionId) ? undefined : sessionId)
     setQuery('')
     changeSearchExpanded(false)
     open(sessionId)
@@ -1300,15 +1311,18 @@ export function WorkspaceBrowser({
   }
   return (
     <div ref={browserRef} className={clsx(css.root, !wide && css.rail)}>
-      <span role="status" className={superPinCss.liveStatus}>
-        {menuMove && `${menuMove.title || t('session.untitled')}. ${labelSuperPin(menuMove.to === 'top' ? 'pinned' : 'returned')}`}
+      <span role="status" className={watchedCss.liveStatus}>
+        {menuMove && `${menuMove.title || t('session.untitled')}. ${labelWatched(menuMove.to === 'top' ? 'watched' : 'returned')}`}
       </span>
-      {superPinEnabled && (
-        <SuperPinArea
-          rows={superPinRows}
-          drag={superDrag}
-          label={labelSuperPin}
-          currentId={showCurrentInTop ? mainSessionId : undefined}
+      {watchEnabled && (
+        <WatchedArea
+          rows={watchedRows}
+          view={watchedView}
+          attention={watchedAttention}
+          onCycleView={watched.cycleView}
+          drag={watchDrag}
+          label={labelWatched}
+          currentId={watchedCurrentId}
           onOpen={guardedOpen}
           onRenameRequest={requestSessionRename}
           renderSlot={renderSlot}
@@ -1443,8 +1457,8 @@ export function WorkspaceBrowser({
         </Tooltip>
       </div>}
 
-      {superPinEnabled && <SuperPinReturnTarget drag={superDrag} label={labelSuperPin} />}
-      <div ref={wide ? bindScrollerRef : undefined} className={css.listArea}
+      {watchEnabled && <WatchedReturnTarget drag={watchDrag} label={labelWatched} />}
+      <div ref={wide ? bindScrollerRef : undefined} className={clsx(css.listArea, watchedReturnClass(watchDrag))}
         data-sidebar-list-area="" {...returnTargetHandlers}>
         {wide && (normalizedQuery !== ''
           ? (
@@ -1473,7 +1487,7 @@ export function WorkspaceBrowser({
                 sessionIds={orderedFlatSessionIds}
                 rowState={rowState}
                 excluded={excluded}
-                superDrag={superDrag}
+                watchDrag={watchDrag}
                 onLeaveArchivedOnly={leaveArchivedOnly}
                 workspaceReady={workspaceReady}
                 animationResetKey={`${groupBy}/${orderBy}/${archivedFilter}`}
@@ -1512,7 +1526,7 @@ export function WorkspaceBrowser({
                 setSessionOrder={saveSessionOrder}
                 rowState={rowState}
                 excluded={excluded}
-                superDrag={superDrag}
+                watchDrag={watchDrag}
                 onLeaveArchivedOnly={leaveArchivedOnly}
                 startSession={startSession}
                 open={guardedOpen}

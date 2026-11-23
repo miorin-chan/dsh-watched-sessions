@@ -1,5 +1,5 @@
-Arraste as sessões na seção superior para reordená-las.
-Para remover a superfixação, arraste a sessão de volta à lista normal.
-Também é possível superfixar ou remover a superfixação pelo menu **…** ou com o botão direito.
+Arraste uma sessão para o topo da barra lateral para acompanhá-la e devolva-a à lista normal para deixar de acompanhar.
+A seta ao lado de **Acompanhadas** alterna entre todas, recolhidas e as que exigem atenção.
+O menu **…** da sessão e o botão direito oferecem as mesmas ações.
 
-Este cliente guarda as sessões superfixadas e a ordem delas.
+Este cliente guarda as sessões acompanhadas e a ordem delas.

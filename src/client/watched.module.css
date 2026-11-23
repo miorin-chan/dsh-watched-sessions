@@ -1,0 +1,236 @@
+.area {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--dsw-radius-md);
+  transition: margin-bottom 180ms var(--ds-ease-in-out, ease-in-out), background-color 120ms var(--ds-ease-in-out, ease-in-out);
+}
+
+.areaOpen {
+  margin-bottom: 4px;
+}
+
+/* Grid rows animate between zero and natural height without measuring rows in script. */
+.fold {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 180ms var(--ds-ease-in-out, ease-in-out),
+    opacity 180ms var(--ds-ease-in-out, ease-in-out);
+}
+
+.fold[data-open] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.foldInner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Open folds let the native drop markers paint across the 7px seam between rows. */
+.fold[data-open] > .foldInner {
+  overflow: clip;
+  overflow-clip-margin: 8px;
+}
+
+/* Typography comes from the native section label; the layout matches the Workspaces header. */
+.header {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  height: 36px;
+  box-sizing: border-box;
+  padding-inline: var(--dsh-sidebar-row-padding) calc(var(--dsh-sidebar-paint-inset) + 8px);
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.label {
+  flex: 0 1 auto;
+  max-width: none;
+  text-overflow: ellipsis;
+}
+
+/* Copied from @miorin/dsh-workspace-list-toggle b557d14, which follows Rows.module.css .chevron
+   and WorkspaceBrowser.module.css .iconButton (DSH ui-workspace 0.2.2-rc.5). */
+.disclosure {
+  flex: none;
+  display: grid;
+  place-items: center;
+  inline-size: 22px;
+  block-size: 24px;
+  margin-left: 3px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dsw-alias-label-caption);
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .disclosure:hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+    color: var(--dsw-alias-label-secondary);
+  }
+}
+
+.disclosure:focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: 1px;
+}
+
+/* Down means the section is open; the hollow arrow marks the partial Needs attention view. */
+.disclosure > svg {
+  transform: rotate(90deg);
+  transition: transform 180ms var(--ds-ease-in-out, ease-in-out);
+}
+
+.disclosure[data-view="collapsed"] > svg {
+  transform: rotate(0deg);
+}
+
+.disclosure path {
+  transition: fill-opacity 180ms var(--ds-ease-in-out, ease-in-out);
+}
+
+.disclosure[data-view="attention"] path {
+  fill-opacity: 0;
+}
+
+.count {
+  flex: none;
+  margin-left: auto;
+  padding-left: 8px;
+  color: var(--dsw-alias-label-caption);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  line-height: 20px;
+}
+
+/* The scroll fallback only engages for long lists. Its padding keeps the drop markers inside the scrollport,
+   and the matching negative margin keeps the first row flush with the header. */
+.rows {
+  max-height: min(50cqh, 24rem);
+  margin-block: -7px;
+  padding-block: 7px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* WorkspaceBrowser.module.css .sessionOverflowButton (DSH ui-workspace 0.2.2-rc.5). */
+.note {
+  height: 28px;
+  padding-left: calc(var(--dsh-sidebar-row-padding) + 16px + var(--dsh-sidebar-label-gap));
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 28px;
+}
+
+/* Drop rows share the session row's inset, height and leading slot so their labels align with titles. */
+.dropRow,
+.returnTarget {
+  display: flex;
+  align-items: center;
+  gap: var(--dsh-sidebar-label-gap);
+  height: 32px;
+  box-sizing: border-box;
+  margin: 2px var(--dsh-sidebar-paint-inset);
+  padding-inline: calc(var(--dsh-sidebar-row-padding) - var(--dsh-sidebar-paint-inset)) 8px;
+  border-radius: var(--dsw-radius-md);
+  background: color-mix(in srgb, var(--dsw-alias-label-primary) 4%, transparent);
+  color: var(--dsw-alias-label-tertiary);
+  transition: background-color 120ms var(--ds-ease-in-out, ease-in-out), color 120ms var(--ds-ease-in-out, ease-in-out);
+}
+
+.dropIcon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 20px;
+}
+
+.dropLabel {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.area.over,
+.dropRow.over {
+  background-color: color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent);
+}
+
+.dropRow.over,
+.returnTarget.over {
+  color: var(--dsw-alias-label-primary);
+}
+
+.dropRow.over .dropIcon,
+.returnTarget.over .dropIcon {
+  color: var(--dsw-alias-state-business-primary);
+}
+
+/* The return hint floats over the first list row instead of pushing the list down. */
+.returnAnchor {
+  position: relative;
+  z-index: 2;
+  height: 0;
+}
+
+.returnTarget {
+  position: absolute;
+  inset: 0 0 auto;
+  margin-block: 0;
+  background-color: var(--dsw-specific-sidebar-fill);
+  background-image: linear-gradient(
+    color-mix(in srgb, var(--dsw-alias-label-primary) 4%, transparent),
+    color-mix(in srgb, var(--dsw-alias-label-primary) 4%, transparent)
+  );
+  box-shadow: 0 0 0 0.5px var(--dsw-alias-border-l2), 0 4px 12px rgb(0 0 0 / 8%);
+}
+
+.returnTarget.over {
+  background-image: linear-gradient(
+    color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent),
+    color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent)
+  );
+}
+
+.returnList {
+  border-radius: var(--dsw-radius-md);
+  transition: background-color 120ms var(--ds-ease-in-out, ease-in-out);
+}
+
+.returnListOver {
+  background-color: color-mix(in srgb, var(--dsw-alias-state-business-primary) 6%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .area,
+  .fold,
+  .disclosure > svg,
+  .disclosure path,
+  .dropRow,
+  .returnTarget,
+  .returnList {
+    transition: none;
+  }
+}
+
+.liveStatus {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

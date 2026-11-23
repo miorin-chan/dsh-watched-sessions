@@ -1,5 +1,6 @@
-Faites glisser les sessions dans la section du haut pour les réorganiser.
-Ramenez-les dans la liste normale pour retirer le super épinglage.
-Ces actions sont aussi disponibles dans le menu **…** ou par clic droit.
+Faites glisser une session en haut de la barre latérale pour la suivre,
+puis ramenez-la dans la liste normale pour ne plus la suivre.
+La flèche à côté de **Suivies** alterne entre toutes, repliées et celles qui demandent votre attention.
+Le menu **…** de la session et le clic droit proposent les mêmes actions.
 
-Ce client conserve les super épinglages et leur ordre.
+Ce client conserve les sessions suivies et leur ordre.

@@ -1,7 +1,7 @@
 {
   "meta": {
-    "title": "Super épinglage",
-    "description": "Faites glisser les sessions en haut de la barre latérale pour y accéder rapidement.",
+    "title": "Sessions suivies",
+    "description": "Garde les sessions choisies en haut de la barre latérale, repliables ou filtrées sur celles qui demandent votre attention.",
     "detail": "docs/DETAIL.fr.md"
   }
 }

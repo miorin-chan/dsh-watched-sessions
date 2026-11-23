@@ -4,20 +4,20 @@ import { IconArchiveOutlineRegular, IconPinFillRegular, IconPinOutlineRegular, I
 import type { SessionRowOwnerProps } from '@deepseek-ai/dsh-client-ui-workspace/client'
 // @deepseek-ai/dsh-client-ui-workspace 0.2.2-rc.5, src/client/rows/Rows.module.css: iconButton, pinnedAction.
 import css from '@deepseek-ai/dsh-client-ui-workspace/src/client/rows/Rows.module.css'
-import { WorkspaceBrowser, type SuperPinBrowserProps } from './upstream/WorkspaceBrowser'
+import { WorkspaceBrowser, type WatchedBrowserProps } from './upstream/WorkspaceBrowser'
 import clsx from 'clsx'
 
-declare const __SUPER_PIN_STYLES__: string
+declare const __WATCHED_STYLES__: string
 
 type RowTarget = Extract<ContextMenuTarget, { kind: 'session' }>
 export type RunRowAction = (target: RowTarget, iconKey: string) => void
 
-type BrowserProps = Omit<SuperPinBrowserProps, 'renderSlot' | '__renders'> & { runRowAction: RunRowAction }
+type BrowserProps = Omit<WatchedBrowserProps, 'renderSlot' | '__renders'> & { runRowAction: RunRowAction }
 
 /** The stock browser's child slot declarations remain with its registration. Reuse its structured actions here. */
-export function SuperPinBrowser(props: BrowserProps) {
+export function WatchedBrowser(props: BrowserProps) {
   const { runRowAction, t, useSessionAccess, useWorkspaces } = props
-  const renderRowParts: SuperPinBrowserProps['renderSlot'] = useCallback((name, owner) => {
+  const renderRowParts: WatchedBrowserProps['renderSlot'] = useCallback((name, owner) => {
     if (name !== 'sidebar.workspaces.session.row.action'
       || !('sessionId' in owner) || typeof owner.sessionId !== 'string'
       || !('displayTitle' in owner) || typeof owner.displayTitle !== 'string') return null
@@ -27,7 +27,7 @@ export function SuperPinBrowser(props: BrowserProps) {
   }, [runRowAction, t, useSessionAccess, useWorkspaces])
   return (
     <>
-      <style>{__SUPER_PIN_STYLES__}</style>
+      <style>{__WATCHED_STYLES__}</style>
       <WorkspaceBrowser {...props} renderSlot={renderRowParts} />
     </>
   )

@@ -1,5 +1,6 @@
-Ziehe Sitzungen innerhalb des oberen Bereichs, um sie zu sortieren.
-Ziehe sie zurück in die normale Liste, um die Super-Anheftung aufzuheben.
-Dieselben Aktionen zum Anheften und Lösen sind im Menü **…** oder per Rechtsklick verfügbar.
+Ziehe eine Sitzung nach oben in die Seitenleiste, um sie zu beobachten,
+und zurück in die normale Liste, um sie nicht mehr zu beobachten.
+Der Pfeil neben **Beobachtet** wechselt zwischen allen, eingeklappt und Handlungsbedarf.
+Dieselben Aktionen sind im Menü **…** der Sitzung oder per Rechtsklick verfügbar.
 
-Positionen und Reihenfolge werden in diesem Client gespeichert.
+Beobachtete Sitzungen und ihre Reihenfolge werden in diesem Client gespeichert.

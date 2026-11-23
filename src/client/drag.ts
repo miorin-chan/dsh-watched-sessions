@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { PinLanding, SuperPins } from './super-pins'
+import type { WatchLanding, Watched } from './watched'
 
 interface DragSource {
   id: SessionId
@@ -8,14 +8,14 @@ interface DragSource {
 }
 
 /** One native drag joins the two regions. A cross-region drop retires the stock list's marker. */
-export function useSuperPinDrag(enabled: boolean, pins: SuperPins, canPin: (id: SessionId) => boolean) {
+export function useWatchDrag(enabled: boolean, watched: Watched, canWatch: (id: SessionId) => boolean) {
   const active = useRef<DragSource | null>(null)
   const cancelListDrag = useRef<(() => void) | undefined>(undefined)
   const visitedTop = useRef(false)
   const [source, setSource] = useState<DragSource | null>(null)
   const [overTop, setOverTop] = useState(false)
   const [overList, setOverList] = useState(false)
-  const [marker, setMarker] = useState<PinLanding | undefined>(undefined)
+  const [marker, setMarker] = useState<WatchLanding | undefined>(undefined)
   const revealFrame = useRef<number | null>(null)
 
   const cancelReveal = useCallback(() => {
@@ -44,7 +44,7 @@ export function useSuperPinDrag(enabled: boolean, pins: SuperPins, canPin: (id: 
   }, [enabled])
 
   function begin(id: SessionId, origin: DragSource['origin'], cancel?: () => void): void {
-    if (!enabled || !canPin(id)) return
+    if (!enabled || !canWatch(id)) return
     reset()
     const next = { id, origin }
     active.current = next
@@ -73,7 +73,7 @@ export function useSuperPinDrag(enabled: boolean, pins: SuperPins, canPin: (id: 
       return allowFallback
     },
     endTop() { if (active.current?.origin === 'top') reset() },
-    hoverTop(landing?: PinLanding): boolean {
+    hoverTop(landing?: WatchLanding): boolean {
       if (active.current === null) return false
       visitedTop.current = true
       setMarker(previous => previous?.id === landing?.id && previous?.half === landing?.half ? previous : landing)
@@ -85,12 +85,12 @@ export function useSuperPinDrag(enabled: boolean, pins: SuperPins, canPin: (id: 
       setOverTop(false)
       setMarker(undefined)
     },
-    dropTop(landing?: PinLanding): boolean {
+    dropTop(landing?: WatchLanding): boolean {
       const session = active.current
       if (session === null) return false
       cancelListDrag.current?.()
       reset()
-      if (canPin(session.id)) pins.place(session.id, landing)
+      if (canWatch(session.id)) watched.place(session.id, landing)
       return true
     },
     hoverList(): boolean {
@@ -105,10 +105,10 @@ export function useSuperPinDrag(enabled: boolean, pins: SuperPins, canPin: (id: 
       const session = active.current
       if (session?.origin !== 'top') return false
       reset()
-      pins.unpin(session.id)
+      watched.unwatch(session.id)
       return true
     },
   }
 }
 
-export type SuperPinDrag = ReturnType<typeof useSuperPinDrag>
+export type WatchDrag = ReturnType<typeof useWatchDrag>

@@ -7,8 +7,11 @@ Where the two conflict, this file wins.
 
 ## Scope
 
-This bundle moves sessions into a temporary drop area that becomes a persistent section above the session list.
+This bundle keeps watched sessions in a section above the session list.
+Dragging a session opens a temporary drop row that adds it to the section.
 The client saves the ordered session IDs as a view preference.
+The section header follows `dsh-workspace-list-toggle`: its arrow cycles all, collapsed,
+and Needs attention, with the same attention criterion.
 Keep the native workspace membership, regular pin, filter, and ordering semantics when adapting the browser.
 
 ## Project documentation

@@ -1,7 +1,7 @@
 {
   "meta": {
-    "title": "Super-Anheften",
-    "description": "Ziehe Sitzungen an den oberen Rand der Seitenleiste, um schnell darauf zuzugreifen.",
+    "title": "Beobachtete Sitzungen",
+    "description": "Hält ausgewählte Sitzungen oben in der Seitenleiste. Einklappbar oder auf Sitzungen mit Handlungsbedarf filterbar.",
     "detail": "docs/DETAIL.de.md"
   }
 }

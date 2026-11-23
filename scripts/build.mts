@@ -69,7 +69,7 @@ window.__ModuleLoader__.load({
   factory(require) {
     var module = { exports: {} };
     var exports = module.exports;
-    const __SUPER_PIN_STYLES__ = ${JSON.stringify(styles)};
+    const __WATCHED_STYLES__ = ${JSON.stringify(styles)};
 ${code}
     return module.exports;
   },

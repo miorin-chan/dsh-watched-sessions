@@ -1,9 +1,9 @@
 {
-  "name": "@miorin/dsh-super-pin",
-  "version": "0.1.2",
+  "name": "@miorin/dsh-watched-sessions",
+  "version": "0.1.3",
   "private": true,
   "license": "MIT",
-  "description": "Drag sessions above the sidebar list for quick access.",
+  "description": "Keep chosen sessions at the top of the sidebar, collapsible or filtered to those needing attention.",
   "type": "module",
   "keywords": [
     "deepseek-harness",

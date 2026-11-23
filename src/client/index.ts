@@ -12,9 +12,11 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { StoredEntry } from '@deepseek-ai/dsh-client-ui-slots'
 import type { WorkspaceBrowserInjected } from '@deepseek-ai/dsh-client-ui-workspace/client'
 import type { createWorkspaceViewStore } from '@deepseek-ai/dsh-client-ui-workspace/src/client/stores.ts'
-import { SuperPinBrowser, type RunRowAction } from './browser'
+import { WatchedBrowser, type RunRowAction } from './browser'
+import { connectDrafts, type DraftSource } from './drafts'
+import { needsAttention } from './attention'
 import { LABELS, NS } from './labels'
-import { canSuperPin, createSuperPins, STORAGE_KEY, type SuperPins } from './super-pins'
+import { canWatch, createWatched, STORAGE_KEY, type Watched } from './watched'
 
 const BROWSER_SLOT = 'sidebar.workspaces'
 const NATIVE_VIEW_PERSIST = 'dsh.workspace.view.v5'
@@ -48,8 +50,8 @@ function readableStorage(): Storage | undefined {
   try { return window.localStorage } catch { return undefined }
 }
 
-function mountBrowser(ctx: Context, pins: SuperPins): () => void {
-  const labelSuperPin = ctx.locale.bind(NS)
+function mountBrowser(ctx: Context, watched: Watched, drafts: DraftSource): () => void {
+  const labelWatched = ctx.locale.bind(NS)
   let native: StoredEntry | undefined
   let disposeBrowser: (() => void) | undefined
   let warned = false
@@ -67,15 +69,15 @@ function mountBrowser(ctx: Context, pins: SuperPins): () => void {
 
   function reconcile(): void {
     const winner = ctx.slots.entriesOfSlot(BROWSER_SLOT)[0]
-    if (winner?.component === SuperPinBrowser && native !== undefined && ctx.slots.entries(BROWSER_SLOT).includes(native)) return
+    if (winner?.component === WatchedBrowser && native !== undefined && ctx.slots.entries(BROWSER_SLOT).includes(native)) return
     disposeBrowser?.()
     disposeBrowser = undefined
     native = undefined
-    if (winner === undefined || winner.component === SuperPinBrowser) return
+    if (winner === undefined || winner.component === WatchedBrowser) return
 
     const binding = workspaceBinding(winner)
     if (binding === undefined) {
-      if (!warned) console.warn('[dsh-super-pin] This sidebar composition does not expose the expected workspace browser.')
+      if (!warned) console.warn('[dsh-watched-sessions] This sidebar composition does not expose the expected workspace browser.')
       warned = true
       return
     }
@@ -84,32 +86,32 @@ function mountBrowser(ctx: Context, pins: SuperPins): () => void {
       name: BROWSER_SLOT, priority: (winner.options.priority ?? 0) - 1,
       store: binding.store, locale: 'workspace',
       inject: () => ({
-        ...binding.injected, pins, labelSuperPin, runRowAction,
-        hooks: { ...binding.injected.hooks, superPins: pins },
+        ...binding.injected, watched, labelWatched, runRowAction,
+        hooks: { ...binding.injected.hooks, watched, watchedDrafts: drafts },
       }),
-    }, SuperPinBrowser)
+    }, WatchedBrowser)
     const unmenu = ctx.contextMenus.register({
       target: 'session', id: `${NS}.toggle`, order: 110,
-      observe: () => [pins, ctx.sessions.list, ctx.workspaces.list, ctx.locale],
+      observe: () => [watched, ctx.sessions.list, ctx.workspaces.list, ctx.locale],
       resolve: ({ sessionId, displayTitle }) => {
-        const eligible = (id: typeof sessionId) => canSuperPin(
+        const eligible = (id: typeof sessionId) => canWatch(
           ctx.sessions.list.getSnapshot(), ctx.workspaces.list.getSnapshot().archivedSessionIds, id,
         )
         if (!eligible(sessionId)) return []
-        const visiblePins = pins.getSnapshot().ids.filter(eligible)
-        const index = visiblePins.indexOf(sessionId)
+        const visible = watched.getSnapshot().ids.filter(eligible)
+        const index = visible.indexOf(sessionId)
         if (index < 0) return [{
-          id: 'pin', label: labelSuperPin('pin'),
-          run: () => { if (eligible(sessionId)) pins.pin(sessionId, displayTitle) },
+          id: 'watch', label: labelWatched('watch'),
+          run: () => { if (eligible(sessionId)) watched.watch(sessionId, displayTitle) },
         }]
         const actions: MenuAction[] = [{
-          id: 'unpin', label: labelSuperPin('unpin'), run: () => { pins.unpin(sessionId, displayTitle) },
+          id: 'unwatch', label: labelWatched('unwatch'), run: () => { watched.unwatch(sessionId, displayTitle) },
         }]
         if (index > 0) actions.push({
-          id: 'move-up', label: labelSuperPin('moveUp'), run: () => { pins.moveBy(sessionId, -1, eligible) },
+          id: 'move-up', label: labelWatched('moveUp'), run: () => { watched.moveBy(sessionId, -1, eligible) },
         })
-        if (index < visiblePins.length - 1) actions.push({
-          id: 'move-down', label: labelSuperPin('moveDown'), run: () => { pins.moveBy(sessionId, 1, eligible) },
+        if (index < visible.length - 1) actions.push({
+          id: 'move-down', label: labelWatched('moveDown'), run: () => { watched.moveBy(sessionId, 1, eligible) },
         })
         return actions
       },
@@ -125,17 +127,18 @@ function mountBrowser(ctx: Context, pins: SuperPins): () => void {
 export const inject = ['locale', 'slots', 'contextMenus', 'workspaces', 'sessions']
 
 export function apply(ctx: Context): void {
-  const pins = createSuperPins(readableStorage())
+  const watched = createWatched(readableStorage())
+  const drafts = connectDrafts(ctx)
   ctx.effect(() => ctx.locale.register(NS, LABELS), `${NS}: locale`)
   ctx.effect(() => {
-    const onStorage = (event: StorageEvent) => { if (event.key === STORAGE_KEY || event.key === null) pins.sync() }
-    const removeArchived = () => pins.removeArchived(ctx.workspaces.list.getSnapshot().archivedSessionIds)
+    const onStorage = (event: StorageEvent) => { if (event.key === STORAGE_KEY || event.key === null) watched.sync() }
+    const removeArchived = () => watched.removeArchived(ctx.workspaces.list.getSnapshot().archivedSessionIds)
     removeArchived()
     const unsubscribe = ctx.workspaces.list.subscribe(removeArchived)
     window.addEventListener('storage', onStorage)
     return () => { window.removeEventListener('storage', onStorage); unsubscribe() }
   }, `${NS}: preferences`)
-  ctx.slots.inject(BROWSER_SLOT, () => mountBrowser(ctx, pins))
+  ctx.slots.inject(BROWSER_SLOT, () => mountBrowser(ctx, watched, drafts))
 }
 
-export const __test = { canSuperPin, createSuperPins, workspaceBinding }
+export const __test = { canWatch, createWatched, needsAttention, workspaceBinding }

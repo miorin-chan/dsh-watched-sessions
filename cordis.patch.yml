@@ -1,5 +1,5 @@
 # Activates the bundle. The Host half is inert; the Client half ships through
-# package.json `dsh.client` and carries Super pin.
+# package.json `dsh.client` and carries Watched sessions.
 - insert:
-    - id: dsh-super-pin
-      name: '@miorin/dsh-super-pin'
+    - id: dsh-watched-sessions
+      name: '@miorin/dsh-watched-sessions'
