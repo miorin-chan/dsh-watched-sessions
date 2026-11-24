@@ -2,6 +2,7 @@
   flex: none;
   display: flex;
   flex-direction: column;
+  min-inline-size: 0;
   border-radius: var(--dsw-radius-md);
   transition: margin-bottom 180ms var(--ds-ease-in-out, ease-in-out), background-color 120ms var(--ds-ease-in-out, ease-in-out);
 }
@@ -13,6 +14,7 @@
 /* Grid rows animate between zero and natural height without measuring rows in script. */
 .fold {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: 0fr;
   opacity: 0;
   transition:
@@ -27,6 +29,7 @@
 
 .foldInner {
   min-height: 0;
+  min-inline-size: 0;
   overflow: hidden;
 }
 
@@ -157,6 +160,7 @@
   max-height: min(50cqh, 24rem);
   margin-block: -7px;
   padding-block: 7px;
+  overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
 }

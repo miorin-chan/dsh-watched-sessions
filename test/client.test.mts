@@ -418,6 +418,10 @@ test('renders the watched section header aligned with sidebar section headers', 
   const match = bundle.match(/const __WATCHED_STYLES__ = ("[^\n]+");/)
   assert.ok(match)
   const styles = JSON.parse(match[1]) as string
+  assert.match(styles, /\.watched_area\s*\{[^}]*min-inline-size:\s*0/)
+  assert.match(styles, /\.watched_fold\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/)
+  assert.match(styles, /\.watched_foldInner\s*\{[^}]*min-inline-size:\s*0/)
+  assert.match(styles, /\.watched_rows\s*\{[^}]*overflow-x:\s*hidden/)
   assert.match(styles, /\.watched_header\s*\{[^}]*block-size:\s*36px/)
   assert.match(styles, /\.watched_header h2\s*\{[^}]*margin-inline-start:\s*calc\(var\(--dsh-sidebar-row-padding,\s*12px\)\s*-\s*5px\)/)
   assert.match(styles, /\.watched_heading\s*\{[^}]*padding-inline-start:\s*4px;[^}]*color:\s*var\(--dsw-alias-label-tertiary\)/s)
