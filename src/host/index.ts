@@ -8,7 +8,11 @@ export const inject = ['connection', 'sessionQuery']
 export function apply(ctx: Context): void {
   ctx.effect(() => {
     const lifetime = new AbortController()
-    const handle = createRuntimeHandler(ctx.sessionQuery, lifetime.signal)
+    const handle = createRuntimeHandler(ctx.sessionQuery, lifetime.signal, {
+      onError: (id, error) => {
+        ctx.logger?.warn?.('failed to read runtime for %s: %s', id, error instanceof Error ? error.message : String(error))
+      },
+    })
     // Connection admits exact Fetch routes only for authenticated owner peers.
     const unregister = ctx.connection.fetch.register({
       path: RUNTIME_PATH,

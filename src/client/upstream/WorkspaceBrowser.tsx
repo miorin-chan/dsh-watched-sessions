@@ -63,6 +63,7 @@ export type WatchedBrowserProps = WorkspaceBrowserProps & {
   useWatchMode: import('@deepseek-ai/dsh-client-ui-slots').SnapshotSelectorHook<boolean>
   runtime: RuntimeClient
   labelWatched: WatchedTranslate
+  renderWatchedSlot?: WorkspaceBrowserProps['renderSlot']
 }
 
 /**
@@ -966,7 +967,7 @@ export function WorkspaceBrowser({
   requestSearch,
   requestAddWorkspace,
   closeAddWorkspace,
-  renderSlot, renderFactorySlot, useContextMenuTarget, useContextMenu,
+  renderSlot, renderWatchedSlot, renderFactorySlot, useContextMenuTarget, useContextMenu,
   t, watched, useWatched, useWatchedDrafts, useWatchMode, labelWatched,
 }: WatchedBrowserProps) {
   const home = useHostInfo(info => info.home)
@@ -1330,7 +1331,7 @@ export function WorkspaceBrowser({
           watchMode={watchModeEnabled}
           onOpen={guardedOpen}
           onRenameRequest={requestSessionRename}
-          renderSlot={renderSlot}
+          renderSlot={renderWatchedSlot ?? renderSlot}
           renderFactorySlot={renderFactorySlot}
           useContextMenu={useContextMenu}
           useContextMenuTarget={useContextMenuTarget}

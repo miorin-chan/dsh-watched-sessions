@@ -17,14 +17,17 @@
 
 ## 「你在被做成表」彩蛋模式
 
-在 `plugins.bundle.config` 详情页开关打开 **你在被做成表** 后，开关状态作为客户端偏好保存在 `localStorage` 中，
-并经由 `shell.overlay` 生效：
+在独立插件详情页（`plugins.bundle.config`）或包含本插件且启用该行的聚合包详情页（`plugins.detail.section`）
+打开 **你在被做成表** 后，开关状态作为客户端偏好保存在 `localStorage` 中，并经由 `shell.overlay` 生效：
 
 - 客户端通过样式规则将插件卡片、详情页和拖放提示中的眼睛图标替换为手表，并把分区标题、提示和菜单文案切为「表会话」。
-- 浏览区借助 `sidebar.session.row.trailing` 与 `sidebar.session.row.hover` 插槽向宿主发起
-  按批去重的 `GET /api/watched-sessions/runtime` 鉴权请求。
+- 浏览区仅为表会话分区（`WatchedArea`）挂载 `sidebar.session.row.trailing` 与 `sidebar.session.row.hover` 插槽，
+  普通列表（`SessionTree`、`FlatList`）保持原生相对时间且不触发请求。
+- 运行时客户端按会话并发隔离发起 `GET /api/watched-sessions/runtime` 鉴权请求（兼容页内 `__DSH_TRANSPORT__.fetch`），
+  在超时或瞬时失败时按退避策略重试，并在 `connection/reset` 时自动重置并重新拉取。
 - 宿主在 [运行时长模块](../src/lib/runtime.ts) 中经由 `ctx.sessionQuery.observeSession(..., { projectionMode: 'none' })`
-  汇总已结束回合时长，仅对当前存活且运行中的会话回传活跃回合起始时间，由客户端按秒跳表，同时保留待审批等交互标签。
+  汇总已结束回合时长，仅对当前存活且运行中的会话回传活跃回合起始时间，由客户端按秒跳表，
+  同时保留待审批等交互标签；非 `SESSION_QUERY_SESSION_NOT_FOUND` 的单会话异常通过日志警告记录，不阻断同批其余会话。
 
 ## 分区视图
 

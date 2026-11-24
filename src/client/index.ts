@@ -7,6 +7,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-api-session-controller/client'
 import type {} from '@deepseek-ai/dsh-api-workspace-controller/client'
+import type {} from '@deepseek-ai/dsh-client-connection/client'
 import type { MenuAction } from '@deepseek-ai/dsh-client-ui-context-menu/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { PropsLocale, PropsRuntime, StoredEntry } from '@deepseek-ai/dsh-client-ui-slots'
@@ -18,7 +19,7 @@ import { WatchedBrowser, type RunRowAction } from './browser'
 import { connectDrafts, type DraftSource } from './drafts'
 import { LABELS, NS } from './labels'
 import { createRuntimeClient, formatDuration, type RuntimeClient } from './runtime'
-import { buildWatchModeCss, WatchModeOverlay, WatchModeSettings } from './watch-mode-settings'
+import { AggregatedWatchModeSettings, buildWatchModeCss, WatchModeOverlay, WatchModeSettings } from './watch-mode-settings'
 import { createWatchMode, WATCH_MODE_STORAGE_KEY, type WatchMode } from './watch-mode'
 import { canWatch, createWatched, STORAGE_KEY, type Watched } from './watched'
 import { WatchedArea, WatchedReturnTarget } from './watched-area'
@@ -26,6 +27,7 @@ import { WatchedArea, WatchedReturnTarget } from './watched-area'
 const BUNDLE = '@miorin/dsh-watched-sessions'
 const BROWSER_SLOT = 'sidebar.workspaces'
 const CONFIG_SLOT = 'plugins.bundle.config'
+const DETAIL_SLOT = 'plugins.detail.section'
 const OVERLAY_SLOT = 'shell.overlay'
 const NATIVE_VIEW_PERSIST = 'dsh.workspace.view.v5'
 const NATIVE_ACTIONS = [
@@ -148,7 +150,13 @@ export function apply(ctx: Context): void {
   const drafts = connectDrafts(ctx)
   const runtime = createRuntimeClient()
   ctx.effect(() => ctx.locale.register(NS, LABELS), `${NS}: locale`)
-  ctx.effect(() => () => { runtime.dispose() }, `${NS}: runtime`)
+  ctx.effect(() => {
+    const offReset = typeof ctx.on === 'function' ? ctx.on('connection/reset', () => { runtime.reset() }) : undefined
+    return () => {
+      offReset?.()
+      runtime.dispose()
+    }
+  }, `${NS}: runtime`)
   ctx.effect(() => {
     const onStorage = (event: StorageEvent) => {
       if (event.key === STORAGE_KEY || event.key === null) watched.sync()
@@ -164,6 +172,10 @@ export function apply(ctx: Context): void {
     ({ view, t }: PropsRuntime<typeof CONFIG_SLOT> & PropsLocale<typeof NS>) =>
       createElement(WatchModeSettings, { view, watchMode, t }),
   ))
+  ctx.slots.inject(DETAIL_SLOT, () => ctx.slots.register({ name: DETAIL_SLOT, id: NS, locale: NS },
+    ({ subject, t }: PropsRuntime<typeof DETAIL_SLOT> & PropsLocale<typeof NS>) =>
+      createElement(AggregatedWatchModeSettings, { subject, bundleName: BUNDLE, rowId: NS, watchMode, t }),
+  ))
   ctx.slots.inject(OVERLAY_SLOT, () => ctx.slots.register({
     name: OVERLAY_SLOT, id: `${NS}.watch-mode`, inject: () => ({ hooks: { watchMode } }),
   }, WatchModeOverlay))
@@ -171,6 +183,7 @@ export function apply(ctx: Context): void {
 }
 
 export const __test = {
+  AggregatedWatchModeSettings,
   buildWatchModeCss,
   canWatch,
   createRuntimeClient,
@@ -180,6 +193,7 @@ export const __test = {
   needsAttention,
   WATCH_MODE_STORAGE_KEY,
   WatchedArea,
+  WatchedBrowser,
   WatchedReturnTarget,
   WatchModeOverlay,
   WatchModeSettings,

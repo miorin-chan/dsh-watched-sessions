@@ -15,7 +15,16 @@ export interface RuntimeResponse {
   readonly runtimes: Readonly<Record<string, SessionRuntime>>
 }
 
+export interface RuntimeHandlerOptions {
+  readonly onError?: (sessionId: SessionId, error: unknown) => void
+}
+
 const HEADERS = { 'Cache-Control': 'no-store' }
+
+function isSessionNotFoundError(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && 'code' in error
+    && error.code === 'SESSION_QUERY_SESSION_NOT_FOUND'
+}
 
 export function isValidSessionId(value: string): value is SessionId {
   return value.length > 0 && value === value.trim() && !value.includes('\0')
@@ -66,6 +75,7 @@ export function foldSessionRuntime(
 export function createRuntimeHandler(
   sessionQuery: Pick<Context['sessionQuery'], 'observeSession'>,
   lifetime: AbortSignal,
+  options?: RuntimeHandlerOptions,
 ): (request: Request) => Promise<Response> {
   return async (request: Request): Promise<Response> => {
     const rawIds = new URL(request.url).searchParams.getAll('id')
@@ -105,6 +115,7 @@ export function createRuntimeHandler(
           }
         } catch (error) {
           if (signal.aborted) throw error
+          if (!isSessionNotFoundError(error)) options?.onError?.(id, error)
           // Per-session lookup or corruption errors leave that entry absent without failing siblings.
         }
       }

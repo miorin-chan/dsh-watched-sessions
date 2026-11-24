@@ -27,6 +27,7 @@ assert.equal(registration.id, '@miorin/dsh-watched-sessions')
 const require = createRequire(import.meta.url)
 const plugin = registration.factory((name: string) => name === '@deepseek-ai/dsh-client-ui-primitives' ? {} : require(name))
 const {
+  AggregatedWatchModeSettings,
   buildWatchModeCss,
   canWatch,
   createRuntimeClient,
@@ -36,6 +37,7 @@ const {
   needsAttention,
   WATCH_MODE_STORAGE_KEY,
   WatchedArea,
+  WatchedBrowser,
   WatchedReturnTarget,
   WatchModeOverlay,
   WatchModeSettings,
@@ -82,6 +84,7 @@ function fixture({ compatible = true, startEmpty = false } = {}) {
   const effects = []
   const injections = []
   const slotListeners = new Map<string, Set<() => void>>()
+  const eventListeners = new Map<string, Set<() => void>>()
   const menu = new Map()
   const entries = startEmpty ? [] : [native]
   const labels = new Set()
@@ -89,9 +92,24 @@ function fixture({ compatible = true, startEmpty = false } = {}) {
   function changed(slotName = 'sidebar.workspaces') {
     for (const listener of slotListeners.get(slotName) ?? []) listener()
   }
+  function emit(eventName: string) {
+    for (const listener of eventListeners.get(eventName) ?? []) listener()
+  }
   const bySlot = (slotName = 'sidebar.workspaces') => entries.filter(entry => (entry.options?.name ?? entry.name) === slotName)
   const ctx = {
     inject(names, apply) { injections.push({ names, apply }) },
+    on(eventName: string, listener: () => void) {
+      let group = eventListeners.get(eventName)
+      if (!group) {
+        group = new Set()
+        eventListeners.set(eventName, group)
+      }
+      group.add(listener)
+      return () => {
+        group.delete(listener)
+        if (group.size === 0) eventListeners.delete(eventName)
+      }
+    },
     effect(apply) {
       const dispose = apply()
       effects.push(dispose)
@@ -142,7 +160,7 @@ function fixture({ compatible = true, startEmpty = false } = {}) {
     },
   }
   return {
-    ctx, native, entries, bySlot, menu, labels, workspace, slotListeners, changed, injections,
+    ctx, native, entries, bySlot, menu, labels, workspace, slotListeners, eventListeners, changed, emit, injections,
     stop() { for (const dispose of effects.reverse()) dispose() },
   }
 }
@@ -203,7 +221,11 @@ test('waits for the native browser and shares its view store and menu actions', 
     assert.equal(f.bySlot('sidebar.workspaces').length, 0)
     assert.equal(f.bySlot('plugins.bundle.config').length, 1)
     assert.equal(f.bySlot('plugins.bundle.config')[0].options.key, '@miorin/dsh-watched-sessions')
+    assert.equal(f.bySlot('plugins.detail.section').length, 1)
+    assert.equal(f.bySlot('plugins.detail.section')[0].options.id, 'dsh-watched-sessions')
+    assert.equal(f.bySlot('plugins.detail.section')[0].options.locale, 'dsh-watched-sessions')
     assert.equal(f.bySlot('shell.overlay').length, 1)
+    assert.equal(f.eventListeners.get('connection/reset')?.size, 1)
     f.entries.push(f.native)
     f.changed()
     const replacement = f.ctx.slots.entriesOfSlot()[0]
@@ -245,7 +267,7 @@ test('waits for the native browser and shares its view store and menu actions', 
     f.stop()
   }
   assert.deepEqual(f.entries, [f.native])
-  assert.equal(f.menu.size + f.labels.size + f.slotListeners.size + f.workspace.listeners.size + listeners.size, 0)
+  assert.equal(f.menu.size + f.labels.size + f.slotListeners.size + f.eventListeners.size + f.workspace.listeners.size + listeners.size, 0)
 })
 
 test('keeps the native view active when its binding is incompatible', () => {
@@ -536,11 +558,140 @@ test('formats elapsed durations compactly across units', () => {
   assert.equal(formatDuration((3 * 86400 + 4 * 3600) * 1000, format), '3d 4h')
 })
 
-test('batches runtime requests, caches hits, retries status races, and stops clock when idle', async () => {
+test('isolates slow sessions per request, respects timeout and AbortSignal polyfills, and retries errors', async () => {
+  const seenUrls: string[] = []
+  const errors: unknown[] = []
+  let failSlow = false
+  let releaseHang!: () => void
+  const hangGate = new Promise<void>(resolve => { releaseHang = resolve })
+
+  const client = createRuntimeClient({
+    baseURI: () => 'http://localhost:47311/base/',
+    timeoutMs: 80,
+    errorRetryBaseMs: 25,
+    onError: error => { errors.push(error) },
+    fetch: async (input, init) => {
+      assert.equal(typeof input, 'string')
+      assert.equal(init?.credentials, 'same-origin')
+      assert.equal(init?.cache, 'no-store')
+      seenUrls.push(input as string)
+      const id = new URL(input as string).searchParams.get('id')
+      if (id === 'hang') {
+        await new Promise((resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')), { once: true })
+          void hangGate.then(resolve)
+        })
+        return new Response('timed-out', { status: 503 })
+      }
+      if (id === 'slow-fail' && !failSlow) {
+        failSlow = true
+        return new Response('temp-fail', { status: 500 })
+      }
+      return Response.json({ runtimes: { [id!]: { completedMs: 2_500, runningSince: null } } })
+    },
+  })
+
+  const origAny = AbortSignal.any
+  const origTimeout = AbortSignal.timeout
+  ;(AbortSignal as unknown as { any?: unknown }).any = undefined
+  ;(AbortSignal as unknown as { timeout?: unknown }).timeout = undefined
+
+  try {
+    const stopHang = client.track('hang', '1:0:0', false)
+    const stopFast = client.track('fast', '1:0:0', false)
+    const stopRetry = client.track('slow-fail', '1:0:0', false)
+
+    // Fast session resolves immediately despite a hung sibling and missing AbortSignal.any/timeout.
+    await new Promise(resolve => setTimeout(resolve, 45))
+    assert.deepEqual(client.getEntry('fast'), { status: 'ready', completedMs: 2_500, runningSince: null })
+    // Transient 500 transitions out of loading and recovers automatically via backoff retry.
+    await new Promise(resolve => setTimeout(resolve, 60))
+    assert.deepEqual(client.getEntry('slow-fail'), { status: 'ready', completedMs: 2_500, runningSince: null })
+    // Hung session hits timeoutMs, leaves loading for error, and logs via onError.
+    await new Promise(resolve => setTimeout(resolve, 40))
+    assert.deepEqual(client.getEntry('hang'), { status: 'error' })
+    assert.ok(errors.length >= 1)
+    assert.ok(seenUrls.some(url => url.startsWith('http://localhost:47311/base/api/watched-sessions/runtime?')))
+
+    stopHang()
+    stopFast()
+    stopRetry()
+  } finally {
+    releaseHang()
+    AbortSignal.any = origAny
+    AbortSignal.timeout = origTimeout
+    client.dispose()
+  }
+})
+
+test('resets failed/in-flight runtime requests on connection/reset and supports page transport fetch', async () => {
+  const originalTransport = (globalThis as { __DSH_TRANSPORT__?: unknown }).__DSH_TRANSPORT__
+  const transportRequests: string[] = []
+  let failMode = true
+
+  ;(globalThis as { __DSH_TRANSPORT__?: unknown }).__DSH_TRANSPORT__ = {
+    fetch: async (input: string) => {
+      transportRequests.push(input)
+      const id = new URL(input, 'http://localhost/').searchParams.get('id')!
+      if (failMode) return new Response('offline', { status: 503 })
+      return Response.json({ runtimes: { [id]: { completedMs: 9_000, runningSince: null } } })
+    },
+  }
+
+  const client = createRuntimeClient({ errorRetryBaseMs: 5_000 })
+  try {
+    const stopReady = client.track('ready-one', '1:0:0', false)
+    failMode = false
+    await new Promise(resolve => setTimeout(resolve, 40))
+    assert.deepEqual(client.getEntry('ready-one'), { status: 'ready', completedMs: 9_000, runningSince: null })
+    assert.ok(transportRequests[0].startsWith('api/watched-sessions/runtime?id=ready-one'))
+
+    failMode = true
+    const stopErr = client.track('err-one', '1:0:0', false)
+    await new Promise(resolve => setTimeout(resolve, 40))
+    assert.deepEqual(client.getEntry('err-one'), { status: 'error' })
+
+    // reset() immediately retries errored entries while keeping existing ready entries visible.
+    failMode = false
+    client.reset()
+    assert.deepEqual(client.getEntry('ready-one'), { status: 'ready', completedMs: 9_000, runningSince: null })
+    assert.deepEqual(client.getEntry('err-one'), { status: 'loading' })
+    await new Promise(resolve => setTimeout(resolve, 50))
+    assert.deepEqual(client.getEntry('err-one'), { status: 'ready', completedMs: 9_000, runningSince: null })
+
+    stopReady()
+    stopErr()
+  } finally {
+    ;(globalThis as { __DSH_TRANSPORT__?: unknown }).__DSH_TRANSPORT__ = originalTransport
+    client.dispose()
+  }
+
+  // Host connection/reset emits runtime.reset() cleanly for active subscribers.
+  storeData.clear()
+  const f = fixture()
+  plugin.apply(f.ctx)
+  try {
+    const replacement = f.ctx.slots.entriesOfSlot()[0]
+    const rt = replacement.inject().runtime
+    const stop = rt.track('alpha', '1:0:0', false)
+    await new Promise(resolve => setTimeout(resolve, 35))
+    assert.deepEqual(rt.getEntry('alpha'), { status: 'error' })
+    f.emit('connection/reset')
+    assert.deepEqual(rt.getEntry('alpha'), { status: 'loading' })
+    stop()
+  } finally {
+    f.stop()
+  }
+})
+
+test('batches runtime requests when configured, caches hits, retries status races, and stops clock when idle', async () => {
   const requests: URL[] = []
   let now = 10_000
   let mode: 'ok' | 'race' | 'fail' = 'ok'
   const client = createRuntimeClient({
+    batchLimit: 50,
+    errorRetryBaseMs: 5_000,
+    onError: () => {},
     baseURI: () => 'http://localhost:47311/',
     now: () => now,
     fetch: async (input) => {
@@ -690,4 +841,98 @@ test('switches icons, titles, detail-page setting, and overlay CSS in watch mode
 
   const builtCss = buildWatchModeCss('a', 'b')
   assert.match(builtCss, /img\[src="a"\],\s*img\[src="b"\]/)
+})
+
+test('exposes watch mode settings on aggregate details and scopes runtime slots to watched rows', () => {
+  const SwitchStub = (props: Record<string, unknown>) => ({ type: 'switch-stub', props })
+  const react = {
+    ...require('react'),
+    useCallback: (fn: unknown) => fn,
+    useSyncExternalStore: (subscribe: (cb: () => void) => () => void, getSnapshot: () => unknown) => {
+      void subscribe
+      return getSnapshot()
+    },
+  }
+  const uiPlugin = registration.factory((name: string) => {
+    if (name === 'react') return react
+    if (name === '@deepseek-ai/dsh-client-ui-primitives') {
+      return { HoverCardGroup: ({ children }: { children?: unknown }) => children, Tooltip: ({ children }: { children?: unknown }) => children, Switch: SwitchStub }
+    }
+    return require(name)
+  })
+
+  storeData.clear()
+  const wm = uiPlugin.__test.createWatchMode(storage)
+  const bundleName = '@miorin/dsh-watched-sessions'
+  const rowId = 'dsh-watched-sessions'
+  const row = { rowId, moduleName: bundleName, enabled: true }
+  const aggregate = { name: '@miorin/dsh-atlas-list', enabled: true, rows: [row] }
+  const section = (subject: unknown) => expandNode(uiPlugin.__test.AggregatedWatchModeSettings({
+    subject, bundleName, rowId, watchMode: wm, t: (k: string) => k,
+  }), (type: unknown) => type === uiPlugin.__test.WatchModeSettings)
+
+  const shown = section({ kind: 'bundle', pkg: aggregate })
+  const sw = findElement(shown, element => element.type === SwitchStub)
+  assert.ok(sw)
+  assert.equal(sw.props?.checked, false)
+  ;(sw.props?.onChange as (next: boolean) => void)(true)
+  assert.equal(wm.getSnapshot(), true)
+
+  assert.equal(section({ kind: 'bundle', pkg: { ...aggregate, name: bundleName } }), null)
+  assert.equal(section({ kind: 'bundle', pkg: { ...aggregate, enabled: false } }), null)
+  assert.equal(section({ kind: 'bundle', pkg: { ...aggregate, rows: [] } }), null)
+  assert.equal(section({ kind: 'bundle', pkg: { ...aggregate, rows: [{ ...row, enabled: false }] } }), null)
+  assert.equal(section({ kind: 'row', pkg: aggregate, row }), null)
+
+  const runtime = uiPlugin.__test.createRuntimeClient()
+  try {
+    let watchModeEnabled = true
+    const browserTree = uiPlugin.__test.WatchedBrowser({
+      runRowAction: () => {},
+      runtime,
+      t: (k: string) => k,
+      labelWatched: (k: string) => k,
+      useSessionAccess: () => false,
+      useSessionStatus: () => undefined,
+      useSessions: () => undefined,
+      useWorkspaces: () => false,
+      useWatchMode: (sel: (v: boolean) => boolean) => sel(watchModeEnabled),
+    })
+    const browserEl = findElement(browserTree, element => element.props?.renderWatchedSlot !== undefined)
+    assert.ok(browserEl?.props)
+    const renderSlot = browserEl.props.renderSlot as (name: string, owner: Record<string, unknown>) => ElementNode | null
+    const renderWatchedSlot = browserEl.props.renderWatchedSlot as (name: string, owner: Record<string, unknown>) => ElementNode | null
+
+    // Regular list rows only get row actions; never runtime trailing/hover slots even in watch mode.
+    assert.ok(renderSlot('sidebar.workspaces.session.row.action', { sessionId: 'alpha', displayTitle: 'Alpha' }))
+    assert.equal(renderSlot('sidebar.session.row.trailing', { sessionId: 'alpha' }), null)
+    assert.equal(renderSlot('sidebar.session.row.hover', { sessionId: 'alpha' }), null)
+
+    // Watched rows get actions plus runtime trailing and hover badges in watch mode.
+    assert.ok(renderWatchedSlot('sidebar.workspaces.session.row.action', { sessionId: 'alpha', displayTitle: 'Alpha' }))
+    const trailing = renderWatchedSlot('sidebar.session.row.trailing', { sessionId: 'alpha' })
+    const hover = renderWatchedSlot('sidebar.session.row.hover', { sessionId: 'alpha' })
+    assert.equal(trailing?.props?.sessionId, 'alpha')
+    assert.equal(hover?.props?.sessionId, 'alpha')
+
+    // Disabling watch mode turns off watched row runtime slots too.
+    watchModeEnabled = false
+    const browserOff = uiPlugin.__test.WatchedBrowser({
+      runRowAction: () => {},
+      runtime,
+      t: (k: string) => k,
+      labelWatched: (k: string) => k,
+      useSessionAccess: () => false,
+      useSessionStatus: () => undefined,
+      useSessions: () => undefined,
+      useWorkspaces: () => false,
+      useWatchMode: (sel: (v: boolean) => boolean) => sel(watchModeEnabled),
+    })
+    const offEl = findElement(browserOff, element => element.props?.renderWatchedSlot !== undefined)
+    const offWatchedSlot = offEl?.props?.renderWatchedSlot as (name: string, owner: Record<string, unknown>) => ElementNode | null
+    assert.equal(offWatchedSlot('sidebar.session.row.trailing', { sessionId: 'alpha' }), null)
+    assert.equal(offWatchedSlot('sidebar.session.row.hover', { sessionId: 'alpha' }), null)
+  } finally {
+    runtime.dispose()
+  }
 })

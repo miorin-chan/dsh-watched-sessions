@@ -12,13 +12,36 @@ declare const __WATCHED_STYLES__: string
 declare const __WATCHED_ICON__: string
 declare const __WATCHED_ICON_TRIMMED__: string
 
-// @deepseek-ai/dsh-client-ui-plugin-manager 0.2.2-rc.5, lib/types/client/slot-contract.d.ts: plugins.bundle.config.
+// @deepseek-ai/dsh-client-ui-plugin-manager 0.2.2-rc.5, lib/types/client/slot-contract.d.ts:
+// plugins.bundle.config, plugins.detail.section, PluginDetailProps, PluginPackageRef, PluginRowRef, PluginsSubject.
+export interface WatchDetailRowRef {
+  readonly rowId: string
+  readonly moduleName: string
+  readonly enabled: boolean
+}
+
+export interface WatchDetailPackageRef {
+  readonly name: string
+  readonly enabled: boolean
+  readonly rows: readonly WatchDetailRowRef[]
+}
+
+export type WatchDetailSubject =
+  | { readonly kind: 'bundle'; readonly pkg: WatchDetailPackageRef }
+  | { readonly kind: 'row'; readonly pkg: WatchDetailPackageRef; readonly row: WatchDetailRowRef }
+  | { readonly kind: 'item'; readonly id: string }
+
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface SlotMap {
     'plugins.bundle.config': {
       kind: 'keyed'
       scope: 'root'
       owner: { readonly view: 'summary' | 'page' }
+    }
+    'plugins.detail.section': {
+      kind: 'list'
+      scope: 'root'
+      owner: { readonly subject: WatchDetailSubject }
     }
   }
 }
@@ -59,7 +82,7 @@ export function WatchModeSettings({ view, watchMode, t }: {
   if (view !== 'page') return null
   const label = t('watchMode')
   return (
-    <>
+    <div>
       <style>{__WATCHED_STYLES__}</style>
       <div className={css.settingRow} data-dsh-watched-sessions-watch-mode-setting="">
         <span className={css.settingLabel} onClick={() => { watchMode.setEnabled(!enabled) }}>
@@ -67,8 +90,21 @@ export function WatchModeSettings({ view, watchMode, t }: {
         </span>
         <Switch checked={enabled} onChange={next => { watchMode.setEnabled(next) }} label={label} />
       </div>
-    </>
+    </div>
   )
+}
+
+export function AggregatedWatchModeSettings({ subject, bundleName, rowId, watchMode, t }: {
+  subject: WatchDetailSubject
+  bundleName: string
+  rowId: string
+  watchMode: WatchMode
+  t: PropsLocale<'dsh-watched-sessions'>['t'] | WatchedTranslate
+}) {
+  if (subject.kind !== 'bundle' || subject.pkg.name === bundleName || !subject.pkg.enabled) return null
+  const ownsWatched = subject.pkg.rows.some(row =>
+    row.rowId === rowId && row.moduleName === bundleName && row.enabled)
+  return ownsWatched ? <WatchModeSettings view="page" watchMode={watchMode} t={t} /> : null
 }
 
 export function WatchModeOverlay({ useWatchMode }: PropsHooks<{ watchMode: import('@deepseek-ai/dsh-client-ui-slots').HostObservable<boolean> }>) {

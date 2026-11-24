@@ -72,6 +72,7 @@ test('folds completed turns, live open turns, cold sessions, and forked seeds ac
 test('runtime route validates ids, deduplicates batches, disposes leases, and isolates failures', async () => {
   const lifetime = new AbortController()
   const observedCalls: string[] = []
+  const reportedErrors: Array<{ sessionId: string; error: unknown }> = []
   let activeLeases = 0
 
   const handler = createRuntimeHandler({
@@ -81,6 +82,9 @@ test('runtime route validates ids, deduplicates batches, disposes leases, and is
       if (sessionId === 'missing') {
         throw Object.assign(new Error('not found'), { code: 'SESSION_QUERY_SESSION_NOT_FOUND' })
       }
+      if (sessionId === 'broken') {
+        throw new Error('corrupt session log')
+      }
       activeLeases += 1
       return {
         source: sessionId === 'live-session' ? 'live' : 'prepared',
@@ -88,7 +92,11 @@ test('runtime route validates ids, deduplicates batches, disposes leases, and is
         [Symbol.dispose]() { activeLeases -= 1 },
       } as never
     },
-  }, lifetime.signal)
+  }, lifetime.signal, {
+    onError(sessionId, error) {
+      reportedErrors.push({ sessionId, error })
+    },
+  })
 
   const badEmpty = await handler(new Request(`http://localhost${RUNTIME_PATH}`))
   assert.equal(badEmpty.status, 400)
@@ -100,7 +108,7 @@ test('runtime route validates ids, deduplicates batches, disposes leases, and is
   for (let i = 0; i <= MAX_RUNTIME_BATCH_IDS; i += 1) tooMany.searchParams.append('id', `s-${i}`)
   assert.equal((await handler(new Request(tooMany))).status, 400)
 
-  const ok = await handler(new Request(`http://localhost${RUNTIME_PATH}?id=cold&id=live-session&id=missing&id=cold`))
+  const ok = await handler(new Request(`http://localhost${RUNTIME_PATH}?id=cold&id=live-session&id=missing&id=broken&id=cold`))
   assert.equal(ok.status, 200)
   assert.equal(ok.headers.get('cache-control'), 'no-store')
   assert.deepEqual(await ok.json(), {
@@ -109,7 +117,10 @@ test('runtime route validates ids, deduplicates batches, disposes leases, and is
       'live-session': { completedMs: 0, runningSince: 1_000 },
     },
   })
-  assert.deepEqual(observedCalls, ['cold', 'live-session', 'missing'])
+  assert.deepEqual(observedCalls, ['cold', 'live-session', 'missing', 'broken'])
+  assert.equal(reportedErrors.length, 1)
+  assert.equal(reportedErrors[0].sessionId, 'broken')
+  assert.equal((reportedErrors[0].error as Error).message, 'corrupt session log')
   assert.equal(activeLeases, 0)
 })
 
@@ -121,8 +132,10 @@ test('host plugin registers authenticated runtime route and aborts on disposal',
   let resolveObserve!: () => void
   const observeGate = new Promise<void>(resolve => { resolveObserve = resolve })
 
+  const loggedErrors: Array<[string, ...unknown[]]> = []
   const effects: Array<() => Promise<void> | void> = []
   const ctx = {
+    logger: { warn(...args: [string, ...unknown[]]) { loggedErrors.push(args) } },
     effect(fn: () => () => Promise<void> | void) { effects.push(fn()) },
     connection: {
       fetch: {
@@ -161,4 +174,5 @@ test('host plugin registers authenticated runtime route and aborts on disposal',
   resolveObserve()
   const abortedResponse = await pendingResponse
   assert.equal(abortedResponse.status, 503)
+  assert.equal(loggedErrors.length, 0)
 })

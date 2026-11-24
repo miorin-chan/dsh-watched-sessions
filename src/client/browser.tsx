@@ -16,7 +16,7 @@ declare const __WATCHED_STYLES__: string
 type RowTarget = Extract<ContextMenuTarget, { kind: 'session' }>
 export type RunRowAction = (target: RowTarget, iconKey: string) => void
 
-type BrowserProps = Omit<WatchedBrowserProps, 'renderSlot' | '__renders'> & { runRowAction: RunRowAction }
+type BrowserProps = Omit<WatchedBrowserProps, 'renderSlot' | 'renderWatchedSlot' | '__renders'> & { runRowAction: RunRowAction }
 
 type SessionRuntimeHookProps = {
   sessionId: SessionId
@@ -82,13 +82,15 @@ export function WatchedBrowser(props: BrowserProps) {
   const { runRowAction, runtime, t, labelWatched, useSessionAccess, useSessionStatus, useSessions, useWorkspaces, useWatchMode } = props
   const watchModeEnabled = useWatchMode(enabled => enabled)
   const renderRowParts: WatchedBrowserProps['renderSlot'] = useCallback((name, owner) => {
-    if (name === 'sidebar.workspaces.session.row.action') {
-      if (!('sessionId' in owner) || typeof owner.sessionId !== 'string'
-        || !('displayTitle' in owner) || typeof owner.displayTitle !== 'string') return null
-      return <SessionActions sessionId={owner.sessionId as SessionRowOwnerProps['sessionId']}
-        displayTitle={owner.displayTitle} useWorkspaces={useWorkspaces}
-        useSessionAccess={useSessionAccess} t={t} runRowAction={runRowAction} />
-    }
+    if (name !== 'sidebar.workspaces.session.row.action') return null
+    if (!('sessionId' in owner) || typeof owner.sessionId !== 'string'
+      || !('displayTitle' in owner) || typeof owner.displayTitle !== 'string') return null
+    return <SessionActions sessionId={owner.sessionId as SessionRowOwnerProps['sessionId']}
+      displayTitle={owner.displayTitle} useWorkspaces={useWorkspaces}
+      useSessionAccess={useSessionAccess} t={t} runRowAction={runRowAction} />
+  }, [runRowAction, t, useSessionAccess, useWorkspaces])
+  const renderWatchedRowParts: WatchedBrowserProps['renderSlot'] = useCallback((name, owner) => {
+    if (name === 'sidebar.workspaces.session.row.action') return renderRowParts(name, owner)
     if (!watchModeEnabled || !('sessionId' in owner) || typeof owner.sessionId !== 'string') return null
     const sessionId = owner.sessionId as SessionId
     if (name === 'sidebar.session.row.trailing') {
@@ -100,11 +102,11 @@ export function WatchedBrowser(props: BrowserProps) {
         useSessions={useSessions} useSessionStatus={useSessionStatus} labelWatched={labelWatched} />
     }
     return null
-  }, [labelWatched, runRowAction, runtime, t, useSessionAccess, useSessionStatus, useSessions, useWorkspaces, watchModeEnabled])
+  }, [labelWatched, renderRowParts, runtime, useSessionStatus, useSessions, watchModeEnabled])
   return (
     <>
       <style>{__WATCHED_STYLES__}</style>
-      <WorkspaceBrowser {...props} renderSlot={renderRowParts} />
+      <WorkspaceBrowser {...props} renderSlot={renderRowParts} renderWatchedSlot={renderWatchedRowParts} />
     </>
   )
 }
