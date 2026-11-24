@@ -872,6 +872,11 @@ test('exposes watch mode settings on aggregate details and scopes runtime slots 
   }), (type: unknown) => type === uiPlugin.__test.WatchModeSettings)
 
   const shown = section({ kind: 'bundle', pkg: aggregate })
+  assert.equal(shown?.props?.['data-dsh-watched-sessions-settings'], '')
+  const shownStyle = findElement(shown, element => element.type === 'style')
+  const shownCss = String(shownStyle?.props?.children ?? '')
+  assert.match(shownCss, /\[data-detail-document\][^}]*order:\s*-2/)
+  assert.match(shownCss, /\[data-slot="plugins\.detail\.section"\]\s*>\s*\[data-dsh-watched-sessions-settings\][^}]*order:\s*-1/)
   const sw = findElement(shown, element => element.type === SwitchStub)
   assert.ok(sw)
   assert.equal(sw.props?.checked, false)

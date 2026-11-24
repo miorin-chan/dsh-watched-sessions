@@ -12,6 +12,17 @@ declare const __WATCHED_STYLES__: string
 declare const __WATCHED_ICON__: string
 declare const __WATCHED_ICON_TRIMMED__: string
 
+// @deepseek-ai/dsh-client-ui-plugin-manager 0.2.2-rc.5, src/client/PluginManagerPage.tsx & PluginManagerPage.module.css:
+// .detailSections flex column and [data-slot="plugins.detail.section"] display:contents.
+const AGGREGATE_SECTION_CSS = `[data-plugin-detail] > div:has(> [data-slot="plugins.detail.section"] > [data-dsh-watched-sessions-settings]) > [data-detail-document] {
+  order: -2;
+}
+[data-plugin-detail] > div:has(> [data-slot="plugins.detail.section"] > [data-dsh-watched-sessions-settings]) > [data-plugin-config],
+[data-plugin-detail] [data-slot="plugins.detail.section"] > [data-dsh-watched-sessions-settings] {
+  order: -1;
+}
+`
+
 // @deepseek-ai/dsh-client-ui-plugin-manager 0.2.2-rc.5, lib/types/client/slot-contract.d.ts:
 // plugins.bundle.config, plugins.detail.section, PluginDetailProps, PluginPackageRef, PluginRowRef, PluginsSubject.
 export interface WatchDetailRowRef {
@@ -82,8 +93,8 @@ export function WatchModeSettings({ view, watchMode, t }: {
   if (view !== 'page') return null
   const label = t('watchMode')
   return (
-    <div>
-      <style>{__WATCHED_STYLES__}</style>
+    <div data-dsh-watched-sessions-settings="">
+      <style>{`${__WATCHED_STYLES__}\n${AGGREGATE_SECTION_CSS}`}</style>
       <div className={css.settingRow} data-dsh-watched-sessions-watch-mode-setting="">
         <span className={css.settingLabel} onClick={() => { watchMode.setEnabled(!enabled) }}>
           {label}
