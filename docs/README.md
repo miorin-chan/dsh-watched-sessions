@@ -17,9 +17,10 @@
 
 ## 分区视图
 
-分区标题沿用原生「工作区」标题的高度、字号和颜色，让两个分区读作同级。
-标题旁的箭头与 [左侧栏列表三态切换](../../dsh-workspace-list-toggle/README.zh.md) 共用按钮样式和循环顺序：
-「全部 → 收起 → 需关注」。
+分区标题的盒模型、文字颜色、悬停反馈、
+焦点环以及标题后的紧贴计数与 [后台任务侧栏](../../dsh-background-jobs-sidebar/README.zh.md) 和原生侧栏分区标题一致；
+点击整个标题按钮按「全部 → 收起 → 需关注」循环切换，
+沿用 [左侧栏列表三态切换](../../dsh-workspace-list-toggle/README.zh.md) 的循环顺序与判据。
 实心箭头朝下表示展开，朝右表示收起，空心箭头表示只显示一部分。
 「需关注」与该插件采用同一判据：当前会话、原生置顶、有草稿，以及等待审批、
 计划审阅或回答、正在运行（含子代理）或完成未读的会话。
@@ -48,10 +49,10 @@
 | 位置 | 上游源码和符号 |
 | --- | --- |
 | [浏览区](../src/client/upstream/WorkspaceBrowser.tsx) | `src/client/rows/WorkspaceBrowser.tsx` 的 `WorkspaceBrowser`、`SessionTree`、`FlatList` 和搜索视图。`src/client/tree.ts` 提供分组、过滤和排序。`src/client/stores.ts` 提供平铺排序键。 |
-| [常驻分区](../src/client/watched-area.tsx) | `src/client/rows/Rows.tsx` 的 `SessionNodeItem`，`src/client/rows/WorkspaceBrowser.module.css` 的 `sectionLabel` 与 `sessionOverflowButton`，以及原生 `IconTriangleRightFillRegular` 图形。 |
+| [常驻分区](../src/client/watched-area.tsx) | `src/client/rows/Rows.tsx` 的 `SessionNodeItem`，`src/client/rows/WorkspaceBrowser.module.css` 的 `sessionOverflowButton` 与分区标题样式，`@deepseek-ai/dsh-client-ui-primitives` 的 `DisclosureRow`、`SearchBlock` 标题样式及 `IconTriangleRightFillRegular` 图形。 |
 | [原生行操作](../src/client/browser.tsx) | `src/client/session-actions/PinSession.tsx` 和 `ArchiveSession.tsx` 的悬停按钮样式。菜单动作由宿主执行。 |
 
-本工作区的 `@miorin/dsh-workspace-list-toggle` 提交 `b557d14` 提供 [需关注判据](../src/client/attention.ts)、
-[草稿服务连接](../src/client/drafts.ts) 和箭头按钮样式。
+本工作区的 `@miorin/dsh-workspace-list-toggle` 提交 `b557d14` 提供 [需关注判据](../src/client/attention.ts)
+和 [草稿服务连接](../src/client/drafts.ts)；标题栏布局与样式对齐 `@miorin/dsh-background-jobs-sidebar`。
 
 [第三方依赖许可](../LICENSE.clsx)随构建产物一并打包。

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { test } from 'node:test'
 
@@ -295,4 +296,134 @@ test('passes the optional draft service to the browser and releases it', () => {
   } finally {
     f.stop()
   }
+})
+
+type ElementNode = { type?: unknown; props?: Record<string, unknown> }
+
+function expandNode(node: unknown, shouldExpand: (type: unknown) => boolean): unknown {
+  if (Array.isArray(node)) return node.map(child => expandNode(child, shouldExpand))
+  if (node === null || typeof node !== 'object') return node
+  const element = node as ElementNode
+  if (typeof element.type === 'function' && shouldExpand(element.type)) {
+    return expandNode((element.type as (props: Record<string, unknown>) => unknown)(element.props ?? {}), shouldExpand)
+  }
+  if (element.props?.children === undefined) return element
+  return {
+    ...element,
+    props: { ...element.props, children: expandNode(element.props.children, shouldExpand) },
+  }
+}
+
+function collectElements(node: unknown, match: (element: ElementNode) => boolean, found: ElementNode[] = []): ElementNode[] {
+  if (Array.isArray(node)) {
+    for (const child of node) collectElements(child, match, found)
+    return found
+  }
+  if (node === null || typeof node !== 'object') return found
+  const element = node as ElementNode
+  if (match(element)) found.push(element)
+  collectElements(element.props?.children, match, found)
+  return found
+}
+
+function findElement(node: unknown, match: (element: ElementNode) => boolean): ElementNode | undefined {
+  return collectElements(node, match)[0]
+}
+
+test('renders the watched section header aligned with sidebar section headers', () => {
+  const TooltipStub = ({ children }: { children?: unknown }) => children
+  let nextId = 0
+  const react = {
+    ...require('react'),
+    useId: () => `:watched-${nextId++}:`,
+  }
+  const areaPlugin = registration.factory((name: string) => {
+    if (name === 'react') return react
+    if (name === '@deepseek-ai/dsh-client-ui-primitives') {
+      return { HoverCardGroup: ({ children }: { children?: unknown }) => children, Tooltip: TooltipStub }
+    }
+    return require(name)
+  })
+  const WatchedArea = areaPlugin.__test.WatchedArea
+  const drag = {
+    source: null, overTop: false, overList: false, marker: undefined,
+    hoverTop: () => false, leaveTop: () => {}, dropTop: () => false,
+    beginTop: () => {}, endTop: () => {}, beginList: () => {}, endList: () => false,
+    hoverList: () => false, leaveList: () => {}, dropList: () => false,
+  }
+  const shouldExpand = (type: unknown) => type === TooltipStub || (typeof type === 'function' && type.name === 'Fold')
+  const renderArea = (view: 'all' | 'collapsed' | 'attention', onCycleView: () => void) => {
+    nextId = 0
+    return expandNode(WatchedArea({
+      rows: [{ id: 'alpha', title: 'Alpha' }, { id: 'beta', title: 'Beta' }],
+      view,
+      attention: new Set(['alpha']),
+      onCycleView,
+      drag,
+      label: (key: string) => key,
+      currentId: 'alpha',
+    }), shouldExpand)
+  }
+
+  let cycles = 0
+  const allTree = renderArea('all', () => { cycles += 1 })
+  const header = findElement(allTree, element => element.type === 'header' && element.props?.['data-dsh-watched-sessions-header'] === '')
+  assert.ok(header)
+  const heading = findElement(header, element => element.type === 'h2')
+  assert.ok(heading)
+  const button = findElement(heading, element => element.type === 'button')
+  assert.ok(button?.props)
+  assert.equal(button.props.title, undefined)
+  assert.equal(button.props['data-view'], 'all')
+  assert.equal(button.props['aria-expanded'], true)
+  assert.equal(button.props['aria-label'], 'collapse')
+  const controlsId = button.props['aria-controls']
+  assert.equal(typeof controlsId, 'string')
+
+  const children = Array.isArray(button.props.children) ? button.props.children : [button.props.children]
+  const labelGroup = children[0] as ElementNode
+  const arrowGroup = children[1] as ElementNode
+  assert.equal(labelGroup.type, 'span')
+  assert.equal(arrowGroup.type, 'span')
+  assert.equal(arrowGroup.props?.['aria-hidden'], 'true')
+  const labelSpans = collectElements(labelGroup, element => element.type === 'span' && element !== labelGroup)
+  assert.deepEqual(labelSpans.map(span => span.props?.children), ['section', 2])
+  assert.equal(labelSpans[1].props?.['aria-hidden'], 'true')
+  assert.ok(findElement(arrowGroup, element => element.type === 'svg'))
+
+  const paneOf = (tree: unknown) => findElement(tree, element => element.type === 'div' && element.props?.id === controlsId)
+  assert.equal(paneOf(allTree)?.props?.inert, undefined)
+  assert.equal(paneOf(allTree)?.props?.['data-open'], '')
+
+  ;(button.props.onClick as () => void)()
+  assert.equal(cycles, 1)
+
+  const collapsedTree = renderArea('collapsed', () => {})
+  const collapsedButton = findElement(collapsedTree, element => element.type === 'button' && element.props?.['data-view'] !== undefined)
+  assert.equal(collapsedButton?.props?.['data-view'], 'collapsed')
+  assert.equal(collapsedButton?.props?.['aria-expanded'], false)
+  assert.equal(collapsedButton?.props?.['aria-label'], 'attention')
+  assert.equal(paneOf(collapsedTree)?.props?.inert, '')
+  assert.equal(paneOf(collapsedTree)?.props?.['data-open'], undefined)
+
+  const attentionTree = renderArea('attention', () => {})
+  const attentionButton = findElement(attentionTree, element => element.type === 'button' && element.props?.['data-view'] !== undefined)
+  assert.equal(attentionButton?.props?.['data-view'], 'attention')
+  assert.equal(attentionButton?.props?.['aria-expanded'], true)
+  assert.equal(attentionButton?.props?.['aria-label'], 'expand')
+  assert.equal(paneOf(attentionTree)?.props?.inert, undefined)
+  assert.equal(paneOf(attentionTree)?.props?.['data-open'], '')
+
+  const bundle = readFileSync(new URL('../client.js', import.meta.url), 'utf8')
+  const match = bundle.match(/const __WATCHED_STYLES__ = ("[^\n]+");/)
+  assert.ok(match)
+  const styles = JSON.parse(match[1]) as string
+  assert.match(styles, /\.watched_header\s*\{[^}]*block-size:\s*36px/)
+  assert.match(styles, /\.watched_header h2\s*\{[^}]*margin-inline-start:\s*calc\(var\(--dsh-sidebar-row-padding,\s*12px\)\s*-\s*5px\)/)
+  assert.match(styles, /\.watched_heading\s*\{[^}]*padding-inline-start:\s*4px;[^}]*color:\s*var\(--dsw-alias-label-tertiary\)/s)
+  assert.match(styles, /\.watched_labelGroup\s*\{[^}]*align-items:\s*baseline;[^}]*gap:\s*6px;/s)
+  assert.match(styles, /\.watched_heading:hover,\s*\.watched_heading:hover \.watched_arrow\s*\{\s*color:\s*var\(--dsw-alias-label-secondary\);?\s*\}/)
+  assert.match(styles, /\.watched_heading:focus-visible\s*\{\s*outline:\s*var\(--dsw-focus-ring-width,\s*1px\) solid var\(--dsw-focus-ring-color,\s*var\(--dsw-alias-state-business-primary\)\);\s*outline-offset:\s*-2px;?\s*\}/)
+  assert.match(styles, /\.watched_arrow path\s*\{[^}]*stroke-opacity:\s*0/)
+  assert.match(styles, /\.watched_heading\[data-view=attention\] \.watched_arrow path\s*\{\s*fill-opacity:\s*0;\s*stroke-opacity:\s*1;?\s*\}/)
 })

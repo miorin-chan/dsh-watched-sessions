@@ -1,29 +1,27 @@
-import type { ComponentProps, DragEvent, ReactNode } from 'react'
+import { useId, type ComponentProps, type DragEvent, type ReactNode } from 'react'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import clsx from 'clsx'
-import { HoverCardGroup } from '@deepseek-ai/dsh-client-ui-primitives'
+import { HoverCardGroup, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 // @deepseek-ai/dsh-client-ui-workspace 0.2.2-rc.5, src/client/rows/Rows.tsx: SessionNodeItem.
 import { SessionNodeItem } from '@deepseek-ai/dsh-client-ui-workspace/src/client/rows/Rows.tsx'
 import type { SessionNode } from '@deepseek-ai/dsh-client-ui-workspace/src/client/tree.ts'
-// @deepseek-ai/dsh-client-ui-workspace 0.2.2-rc.5, src/client/rows/WorkspaceBrowser.module.css: sectionLabel.
-import nativeCss from '@deepseek-ai/dsh-client-ui-workspace/src/client/rows/WorkspaceBrowser.module.css'
 import type { WatchDrag } from './drag'
 import type { WatchedLabel, WatchedTranslate } from './labels'
-import { NEXT_VIEW, type WatchedView } from './watched'
+import type { WatchedView } from './watched'
 import css from './watched.module.css'
 
-// DSH IconTriangleRightFillRegular artwork (sprite `dsw-icon-triangle-right-fill-regular`), the disclosure
-// arrow of native workspace rows. Copied with its button styling from @miorin/dsh-workspace-list-toggle
-// b557d14, src/client/index.tsx: TRIANGLE.
+// IconTriangleRightFillRegular path from @deepseek-ai/dsh-client-ui-primitives 0.2.2-rc.5,
+// rendered inline so the `attention` view can switch the glyph to an outline
+// (`fill-opacity: 0; stroke-opacity: 1`).
 const TRIANGLE = 'M5.5 4.5C5.5 4.40714 5.52586 4.31612 5.57467 4.23713C5.62349 4.15815 5.69334 4.09431 5.77639 4.05279C5.85945 4.01126 5.95242 3.99368 6.0449 4.00202C6.13738 4.01036 6.22572 4.04429 6.3 4.1L10.967 7.6C11.0291 7.64657 11.0795 7.70697 11.1142 7.77639C11.1489 7.84582 11.167 7.92238 11.167 8C11.167 8.07762 11.1489 8.15418 11.1142 8.22361C11.0795 8.29303 11.0291 8.35343 10.967 8.4L6.3 11.9C6.22572 11.9557 6.13738 11.9896 6.0449 11.998C5.95242 12.0063 5.85945 11.9887 5.77639 11.9472C5.69334 11.9057 5.62349 11.8419 5.57467 11.7629C5.52586 11.6839 5.5 11.5929 5.5 11.5V4.5Z'
 
 /** The button names the view a click moves to. */
 const NEXT_LABEL = { all: 'collapse', collapsed: 'attention', attention: 'expand' } as const satisfies Record<WatchedView, WatchedLabel>
 
 /** Collapsed folds stay mounted so their height can animate; `inert` keeps their rows out of focus and hit tests. */
-function Fold({ open, children, className }: { open: boolean; children: ReactNode; className?: string }) {
+function Fold({ id, open, children, className }: { id?: string; open: boolean; children: ReactNode; className?: string }) {
   return (
-    <div className={clsx(css.fold, className)} data-open={open ? '' : undefined} {...(open ? {} : { inert: '' })}>
+    <div id={id} className={clsx(css.fold, className)} data-open={open ? '' : undefined} {...(open ? {} : { inert: '' })}>
       <div className={css.foldInner}>{children}</div>
     </div>
   )
@@ -52,6 +50,8 @@ export function WatchedArea({ rows, view, attention, onCycleView, drag, label, c
   label: WatchedTranslate
   currentId: SessionId | undefined
 }) {
+  const paneId = useId()
+  const sectionTitle = label('section')
   const adding = drag.source?.origin === 'list'
   const shown = (id: SessionId) => view !== 'attention' || attention.has(id)
   const quiet = view === 'attention' && rows.every(row => !shown(row.id))
@@ -60,7 +60,7 @@ export function WatchedArea({ rows, view, attention, onCycleView, drag, label, c
 
   return (
     <section
-      aria-label={label('section')}
+      aria-label={sectionTitle}
       className={clsx(css.area, (rows.length > 0 || adding) && css.areaOpen,
         drag.overTop && drag.marker === undefined && !adding && css.over)}
       data-dsh-watched-sessions-area=""
@@ -76,25 +76,33 @@ export function WatchedArea({ rows, view, attention, onCycleView, drag, label, c
       }}
     >
       <Fold open={rows.length > 0}>
-        <div className={css.header} data-dsh-watched-sessions-header="">
-          <span className={clsx(nativeCss.sectionLabel, css.label)}>{label('section')}</span>
-          <button
-            type="button"
-            className={css.disclosure}
-            data-view={view}
-            aria-expanded={view !== 'collapsed'}
-            aria-label={next}
-            title={next}
-            onClick={onCycleView}
-          >
-            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"
-              stroke="currentColor" strokeWidth="1" strokeLinejoin="round">
-              <path d={TRIANGLE} />
-            </svg>
-          </button>
-          <span className={css.count} aria-hidden="true">{rows.length}</span>
-        </div>
-        <Fold open={view !== 'collapsed'}>
+        <header className={css.header} data-dsh-watched-sessions-header="">
+          <h2>
+            <Tooltip label={next} side="right" delayMs={500} portal>
+              <button
+                type="button"
+                className={css.heading}
+                data-view={view}
+                aria-expanded={view !== 'collapsed'}
+                aria-controls={paneId}
+                aria-label={next}
+                onClick={onCycleView}
+              >
+                <span className={css.labelGroup}>
+                  <span className={css.title}>{sectionTitle}</span>
+                  <span className={css.count} aria-hidden="true">{rows.length}</span>
+                </span>
+                <span className={css.arrow} aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"
+                    stroke="currentColor" strokeWidth="1" strokeLinejoin="round">
+                    <path d={TRIANGLE} />
+                  </svg>
+                </span>
+              </button>
+            </Tooltip>
+          </h2>
+        </header>
+        <Fold id={paneId} open={view !== 'collapsed'}>
           <div
             className={css.rows}
             role="tree"

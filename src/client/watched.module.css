@@ -36,79 +36,119 @@
   overflow-clip-margin: 8px;
 }
 
-/* Typography comes from the native section label; the layout matches the Workspaces header. */
+/* Match sidebar section headers (dsh-background-jobs-sidebar and dsh-preview-file-navigation):
+   label follows .sectionHeader / .sectionLabel in WorkspaceBrowser.module.css, arrow follows
+   .arrow / .chevron in Rows.module.css (@deepseek-ai/dsh-client-ui-workspace 0.2.2-rc.5),
+   and hover brightens text and arrow without a button fill (DisclosureRow.module.css in
+   @deepseek-ai/dsh-client-ui-primitives 0.2.2-rc.5). */
 .header {
   position: relative;
   z-index: 1;
   display: flex;
   align-items: center;
-  height: 36px;
+  block-size: 36px;
+  min-inline-size: 0;
+}
+
+.header h2 {
+  display: flex;
+  min-inline-size: 0;
+  max-inline-size: calc(100% - var(--dsh-sidebar-row-padding, 12px) + 5px);
+  margin: 0;
+  margin-inline-start: calc(var(--dsh-sidebar-row-padding, 12px) - 5px);
+  font: inherit;
+}
+
+.heading {
   box-sizing: border-box;
-  padding-inline: var(--dsh-sidebar-row-padding) calc(var(--dsh-sidebar-paint-inset) + 8px);
-  color: var(--dsw-alias-label-tertiary);
-}
-
-.label {
-  flex: 0 1 auto;
-  max-width: none;
-  text-overflow: ellipsis;
-}
-
-/* Copied from @miorin/dsh-workspace-list-toggle b557d14, which follows Rows.module.css .chevron
-   and WorkspaceBrowser.module.css .iconButton (DSH ui-workspace 0.2.2-rc.5). */
-.disclosure {
-  flex: none;
-  display: grid;
-  place-items: center;
-  inline-size: 22px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-inline-size: 0;
+  max-inline-size: 100%;
   block-size: 24px;
-  margin-left: 3px;
+  margin: 0;
   padding: 0;
+  padding-inline-start: 4px;
   border: 0;
   border-radius: 6px;
   background: transparent;
-  color: var(--dsw-alias-label-caption);
+  color: var(--dsw-alias-label-tertiary);
+  font: inherit;
+  text-align: start;
   cursor: pointer;
+  transition: color 100ms ease;
 }
 
-@media (hover: hover) {
-  .disclosure:hover {
-    background: var(--dsw-alias-interactive-bg-hover);
-    color: var(--dsw-alias-label-secondary);
-  }
+/* Baseline-align the count with the label, as .fileHeader does in
+   src/SearchBlock.module.css of @deepseek-ai/dsh-client-ui-primitives 0.2.2-rc.5. */
+.labelGroup {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-inline-size: 0;
+  line-height: 20px;
 }
 
-.disclosure:focus-visible {
-  outline: 1px solid currentColor;
-  outline-offset: 1px;
-}
-
-/* Down means the section is open; the hollow arrow marks the partial Needs attention view. */
-.disclosure > svg {
-  transform: rotate(90deg);
-  transition: transform 180ms var(--ds-ease-in-out, ease-in-out);
-}
-
-.disclosure[data-view="collapsed"] > svg {
-  transform: rotate(0deg);
-}
-
-.disclosure path {
-  transition: fill-opacity 180ms var(--ds-ease-in-out, ease-in-out);
-}
-
-.disclosure[data-view="attention"] path {
-  fill-opacity: 0;
+.title {
+  flex: 0 1 auto;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .count {
   flex: none;
-  margin-left: auto;
-  padding-left: 8px;
-  color: var(--dsw-alias-label-caption);
-  font-size: 12px;
   font-variant-numeric: tabular-nums;
-  line-height: 20px;
+}
+
+.arrow {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  inline-size: 22px;
+  block-size: 24px;
+  color: var(--dsw-alias-label-caption);
+  transition: color 100ms ease;
+}
+
+/* Down means the section is open; the hollow arrow marks the partial Needs attention view.
+   Keeping stroke-opacity at 0 in filled states matches IconTriangleRightFillRegular geometry. */
+.arrow > svg {
+  transition: transform 150ms var(--ds-ease-in-out, ease-in-out);
+}
+
+.heading:dir(rtl) .arrow > svg {
+  transform: rotate(180deg);
+}
+
+.heading[aria-expanded="true"] .arrow > svg {
+  transform: rotate(90deg);
+}
+
+.arrow path {
+  stroke-opacity: 0;
+  transition:
+    fill-opacity 150ms var(--ds-ease-in-out, ease-in-out),
+    stroke-opacity 150ms var(--ds-ease-in-out, ease-in-out);
+}
+
+.heading[data-view="attention"] .arrow path {
+  fill-opacity: 0;
+  stroke-opacity: 1;
+}
+
+@media (hover: hover) {
+  .heading:hover,
+  .heading:hover .arrow {
+    color: var(--dsw-alias-label-secondary);
+  }
+}
+
+.heading:focus-visible {
+  outline: var(--dsw-focus-ring-width, 1px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: -2px;
 }
 
 /* The scroll fallback only engages for long lists. Its padding keeps the drop markers inside the scrollport,
@@ -217,8 +257,10 @@
 @media (prefers-reduced-motion: reduce) {
   .area,
   .fold,
-  .disclosure > svg,
-  .disclosure path,
+  .heading,
+  .arrow,
+  .arrow > svg,
+  .arrow path,
   .dropRow,
   .returnTarget,
   .returnList {

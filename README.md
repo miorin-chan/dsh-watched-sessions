@@ -21,11 +21,11 @@ or show only those needing attention.
 
 Use the session's **…** menu or right-click menu to watch it, stop watching it, or move it up or down.
 
-The arrow beside **Watched** cycles the section through three views, like the session list toggle:
+Clicking the **Watched** heading cycles the section through three views, following the session list toggle:
 all watched sessions, collapsed, and Needs attention.
 Needs attention keeps the current, pinned, and drafted sessions, and those that are running,
 waiting for you, or finished unread.
-The count beside the arrow always shows how many sessions are watched.
+The count right after the title always shows how many sessions are watched.
 Watching a new session reopens the full section, and reloading the page starts from the full section.
 
 When you stop watching a session, it reappears in its original workspace according

@@ -17,6 +17,7 @@ import { connectDrafts, type DraftSource } from './drafts'
 import { needsAttention } from './attention'
 import { LABELS, NS } from './labels'
 import { canWatch, createWatched, STORAGE_KEY, type Watched } from './watched'
+import { WatchedArea } from './watched-area'
 
 const BROWSER_SLOT = 'sidebar.workspaces'
 const NATIVE_VIEW_PERSIST = 'dsh.workspace.view.v5'
@@ -141,4 +142,4 @@ export function apply(ctx: Context): void {
   ctx.slots.inject(BROWSER_SLOT, () => mountBrowser(ctx, watched, drafts))
 }
 
-export const __test = { canWatch, createWatched, needsAttention, workspaceBinding }
+export const __test = { canWatch, createWatched, needsAttention, workspaceBinding, WatchedArea }
