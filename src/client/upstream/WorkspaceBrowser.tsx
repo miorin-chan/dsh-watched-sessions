@@ -47,6 +47,7 @@ import css from '@deepseek-ai/dsh-client-ui-workspace/src/client/rows/WorkspaceB
 import type { DraftSource } from '../drafts'
 import { useWatchDrag, type WatchDrag } from '../drag'
 import type { WatchedTranslate } from '../labels'
+import type { RuntimeClient } from '../runtime'
 import { canWatch, type Watched } from '../watched'
 import { needsAttention } from '../attention'
 import { returnDropHandlers, WatchedArea, WatchedReturnTarget, watchedReturnClass } from '../watched-area'
@@ -59,6 +60,8 @@ export type WatchedBrowserProps = WorkspaceBrowserProps & {
   watched: Watched
   useWatched: import('@deepseek-ai/dsh-client-ui-slots').SnapshotSelectorHook<ReturnType<Watched['getSnapshot']>>
   useWatchedDrafts: import('@deepseek-ai/dsh-client-ui-slots').SnapshotSelectorHook<ReturnType<DraftSource['getSnapshot']>>
+  useWatchMode: import('@deepseek-ai/dsh-client-ui-slots').SnapshotSelectorHook<boolean>
+  runtime: RuntimeClient
   labelWatched: WatchedTranslate
 }
 
@@ -964,7 +967,7 @@ export function WorkspaceBrowser({
   requestAddWorkspace,
   closeAddWorkspace,
   renderSlot, renderFactorySlot, useContextMenuTarget, useContextMenu,
-  t, watched, useWatched, useWatchedDrafts, labelWatched,
+  t, watched, useWatched, useWatchedDrafts, useWatchMode, labelWatched,
 }: WatchedBrowserProps) {
   const home = useHostInfo(info => info.home)
   const shortcuts = useShortcuts(rows => rows)
@@ -1135,6 +1138,7 @@ export function WorkspaceBrowser({
   const [revealSessionId, setRevealSessionId] = useState<SessionId | undefined>(undefined)
   const normalizedQuery = sanitizeSearchQuery(query).trim()
   const watchEnabled = wide && archivedFilter !== 'only' && normalizedQuery === ''
+  const watchModeEnabled = useWatchMode(enabled => enabled)
   const { ids: savedWatched, view: watchedView, menuMove } = useWatched(state => state)
   const browserRef = useRef<HTMLDivElement | null>(null)
   const previousMenuMove = useRef(menuMove)
@@ -1312,7 +1316,7 @@ export function WorkspaceBrowser({
   return (
     <div ref={browserRef} className={clsx(css.root, !wide && css.rail)}>
       <span role="status" className={watchedCss.liveStatus}>
-        {menuMove && `${menuMove.title || t('session.untitled')}. ${labelWatched(menuMove.to === 'top' ? 'watched' : 'returned')}`}
+        {menuMove && `${menuMove.title || t('session.untitled')}. ${labelWatched(menuMove.to === 'top' ? (watchModeEnabled ? 'watchWatched' : 'watched') : 'returned')}`}
       </span>
       {watchEnabled && (
         <WatchedArea
@@ -1323,6 +1327,7 @@ export function WorkspaceBrowser({
           drag={watchDrag}
           label={labelWatched}
           currentId={watchedCurrentId}
+          watchMode={watchModeEnabled}
           onOpen={guardedOpen}
           onRenameRequest={requestSessionRename}
           renderSlot={renderSlot}
@@ -1457,7 +1462,7 @@ export function WorkspaceBrowser({
         </Tooltip>
       </div>}
 
-      {watchEnabled && <WatchedReturnTarget drag={watchDrag} label={labelWatched} />}
+      {watchEnabled && <WatchedReturnTarget drag={watchDrag} label={labelWatched} watchMode={watchModeEnabled} />}
       <div ref={wide ? bindScrollerRef : undefined} className={clsx(css.listArea, watchedReturnClass(watchDrag))}
         data-sidebar-list-area="" {...returnTargetHandlers}>
         {wide && (normalizedQuery !== ''

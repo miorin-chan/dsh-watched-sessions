@@ -5,10 +5,16 @@ import { test } from 'node:test'
 
 let registration
 const listeners = new Map()
-let saved = null
+const storeData = new Map<string, string>()
+const WATCHED_KEY = 'dsh.watched-sessions.v1'
 const storage = {
-  getItem: () => saved,
-  setItem: (_key: string, value: string) => { saved = value },
+  getItem: (key: string) => storeData.get(key) ?? null,
+  setItem: (key: string, value: string) => { storeData.set(key, value) },
+}
+const saved = () => storeData.get(WATCHED_KEY) ?? null
+const setSaved = (value: string | null) => {
+  if (value === null) storeData.delete(WATCHED_KEY)
+  else storeData.set(WATCHED_KEY, value)
 }
 globalThis.window = {
   localStorage: storage,
@@ -20,24 +26,37 @@ await import('../client.js')
 assert.equal(registration.id, '@miorin/dsh-watched-sessions')
 const require = createRequire(import.meta.url)
 const plugin = registration.factory((name: string) => name === '@deepseek-ai/dsh-client-ui-primitives' ? {} : require(name))
-const { canWatch, createWatched, needsAttention } = plugin.__test
+const {
+  buildWatchModeCss,
+  canWatch,
+  createRuntimeClient,
+  createWatchMode,
+  createWatched,
+  formatDuration,
+  needsAttention,
+  WATCH_MODE_STORAGE_KEY,
+  WatchedArea,
+  WatchedReturnTarget,
+  WatchModeOverlay,
+  WatchModeSettings,
+} = plugin.__test
 
 const ids = ['alpha', 'beta', 'gamma']
 const session = (id, extra = {}) => ({ id, blank: false, origin: 'session', ...extra })
 
 function observable(snapshot) {
-  const listeners = new Set()
+  const subscribers = new Set()
   return {
     getSnapshot: () => snapshot,
     subscribe(listener) {
-      listeners.add(listener)
-      return () => { listeners.delete(listener) }
+      subscribers.add(listener)
+      return () => { subscribers.delete(listener) }
     },
     replace(next) {
       snapshot = next
-      for (const listener of listeners) listener()
+      for (const listener of subscribers) listener()
     },
-    listeners,
+    listeners: subscribers,
   }
 }
 
@@ -54,19 +73,23 @@ function fixture({ compatible = true, startEmpty = false } = {}) {
       .map(name => [name, () => {}]),
   )
   const native = {
-    component: () => {}, locale: 'workspace', options: { priority: 0 },
+    name: 'sidebar.workspaces',
+    component: () => {}, locale: 'workspace', options: { name: 'sidebar.workspaces', priority: 0 },
     children: { 'sidebar.workspaces.directoryFlow': { kind: 'single' } },
     store: nativeStore,
     inject: () => ({ ...originalFunctions, hooks, searchResultLimit: compatible ? 20 : undefined }),
   }
   const effects = []
   const injections = []
-  const slotListeners = new Set()
+  const slotListeners = new Map<string, Set<() => void>>()
   const menu = new Map()
   const entries = startEmpty ? [] : [native]
   const labels = new Set()
   const workspace = observable({ archivedSessionIds: [] })
-  function changed() { for (const listener of slotListeners) listener() }
+  function changed(slotName = 'sidebar.workspaces') {
+    for (const listener of slotListeners.get(slotName) ?? []) listener()
+  }
+  const bySlot = (slotName = 'sidebar.workspaces') => entries.filter(entry => (entry.options?.name ?? entry.name) === slotName)
   const ctx = {
     inject(names, apply) { injections.push({ names, apply }) },
     effect(apply) {
@@ -80,16 +103,29 @@ function fixture({ compatible = true, startEmpty = false } = {}) {
       bind: () => name => name,
       register(name, dictionaries) {
         assert.equal(Object.keys(dictionaries).length, 8)
+        const baseKeys = Object.keys(dictionaries.en).sort()
+        for (const [locale, dict] of Object.entries(dictionaries)) {
+          assert.deepEqual(Object.keys(dict).sort(), baseKeys, `locale ${locale} keys`)
+        }
         labels.add(name)
         return () => { labels.delete(name) }
       },
     },
     slots: {
-      entries: () => entries,
-      entriesOfSlot: () => entries.toSorted((a, b) => a.options.priority - b.options.priority).slice(0, 1),
-      subscribe(_name, listener) {
-        slotListeners.add(listener)
-        return () => { slotListeners.delete(listener) }
+      entries: (slotName = 'sidebar.workspaces') => bySlot(slotName),
+      entriesOfSlot: (slotName = 'sidebar.workspaces') =>
+        bySlot(slotName).toSorted((a, b) => (a.options?.priority ?? 0) - (b.options?.priority ?? 0)).slice(0, 1),
+      subscribe(slotName, listener) {
+        let group = slotListeners.get(slotName)
+        if (!group) {
+          group = new Set()
+          slotListeners.set(slotName, group)
+        }
+        group.add(listener)
+        return () => {
+          group.delete(listener)
+          if (group.size === 0) slotListeners.delete(slotName)
+        }
       },
       inject(_name, apply) { effects.push(apply()) },
       register(options, component) {
@@ -106,13 +142,14 @@ function fixture({ compatible = true, startEmpty = false } = {}) {
     },
   }
   return {
-    ctx, native, entries, menu, labels, workspace, slotListeners, changed, injections,
+    ctx, native, entries, bySlot, menu, labels, workspace, slotListeners, changed, injections,
     stop() { for (const dispose of effects.reverse()) dispose() },
   }
 }
 
 test('restores stored sessions, preserves visible order, and persists removals', () => {
-  saved = '["beta",null,"alpha","beta",42,""]'
+  storeData.clear()
+  setSaved('["beta",null,"alpha","beta",42,""]')
   const watched = createWatched(storage)
   const changes = []
   const stop = watched.subscribe(() => changes.push([...watched.getSnapshot().ids]))
@@ -127,7 +164,8 @@ test('restores stored sessions, preserves visible order, and persists removals',
 })
 
 test('menu reordering skips unavailable sessions and keeps focus notices out of storage', () => {
-  saved = '["alpha","unavailable","beta"]'
+  storeData.clear()
+  setSaved('["alpha","unavailable","beta"]')
   const watched = createWatched(storage)
   const visible = id => id !== 'unavailable'
   watched.moveBy('beta', -1, visible)
@@ -137,7 +175,7 @@ test('menu reordering skips unavailable sessions and keeps focus notices out of 
   assert.equal(watched.getSnapshot(), first)
   watched.unwatch('beta', 'Beta')
   assert.deepEqual(watched.getSnapshot().menuMove, { id: 'beta', title: 'Beta', to: 'list' })
-  assert.equal(saved, '["alpha","unavailable"]')
+  assert.equal(saved(), '["alpha","unavailable"]')
   watched.watch('gamma', 'Gamma')
   assert.deepEqual(watched.getSnapshot().menuMove, { id: 'gamma', title: 'Gamma', to: 'top' })
   assert.equal(createWatched(storage).getSnapshot().menuMove, undefined)
@@ -158,36 +196,50 @@ test('ignores missing, blank, subagent, and archived sessions when offering to w
 })
 
 test('waits for the native browser and shares its view store and menu actions', () => {
-  saved = null
+  storeData.clear()
   const f = fixture({ startEmpty: true })
   plugin.apply(f.ctx)
   try {
-    assert.equal(f.entries.length, 0)
+    assert.equal(f.bySlot('sidebar.workspaces').length, 0)
+    assert.equal(f.bySlot('plugins.bundle.config').length, 1)
+    assert.equal(f.bySlot('plugins.bundle.config')[0].options.key, '@miorin/dsh-watched-sessions')
+    assert.equal(f.bySlot('shell.overlay').length, 1)
     f.entries.push(f.native)
     f.changed()
     const replacement = f.ctx.slots.entriesOfSlot()[0]
     assert.notEqual(replacement, f.native)
     assert.equal(replacement.store, f.native.store)
     assert.deepEqual(replacement.inject().hooks.shortcuts, f.native.inject().hooks.shortcuts)
+    assert.equal(replacement.inject().hooks.watchMode.getSnapshot(), false)
     f.changed()
-    assert.equal(f.entries.length, 2)
+    assert.equal(f.bySlot('sidebar.workspaces').length, 2)
     const action = f.menu.get('dsh-watched-sessions.toggle')
     assert.deepEqual(action.resolve({ sessionId: 'missing' }), [])
     const alpha = { sessionId: 'alpha', displayTitle: 'Alpha' }
     const beta = { sessionId: 'beta', displayTitle: 'Beta' }
     assert.equal(action.resolve(alpha)[0].label, 'watch')
     action.resolve(alpha)[0].run()
-    assert.equal(saved, '["alpha"]')
+    assert.equal(saved(), '["alpha"]')
     assert.deepEqual(action.resolve(alpha).map(item => item.label), ['unwatch'])
+
+    // Storage event turning on watch mode swaps context-menu action labels immediately.
+    storeData.set(WATCH_MODE_STORAGE_KEY, 'true')
+    listeners.get('storage')({ key: WATCH_MODE_STORAGE_KEY })
+    assert.equal(replacement.inject().hooks.watchMode.getSnapshot(), true)
+    assert.equal(action.resolve(alpha)[0].label, 'watchUnwatch')
+    assert.equal(action.resolve(beta)[0].label, 'watchWatch')
+    storeData.set(WATCH_MODE_STORAGE_KEY, 'false')
+    listeners.get('storage')({ key: WATCH_MODE_STORAGE_KEY })
+
     action.resolve(beta)[0].run()
     assert.deepEqual(action.resolve(alpha).map(item => item.label), ['unwatch', 'moveDown'])
     assert.deepEqual(action.resolve(beta).map(item => item.label), ['unwatch', 'moveUp'])
     action.resolve(alpha)[1].run()
-    assert.equal(saved, '["beta","alpha"]')
+    assert.equal(saved(), '["beta","alpha"]')
     action.resolve(alpha)[0].run()
-    assert.equal(saved, '["beta"]')
+    assert.equal(saved(), '["beta"]')
     f.workspace.replace({ archivedSessionIds: ['beta'] })
-    assert.equal(saved, '[]')
+    assert.equal(saved(), '[]')
     assert.deepEqual(action.resolve({ sessionId: 'beta' }), [])
   } finally {
     f.stop()
@@ -197,10 +249,11 @@ test('waits for the native browser and shares its view store and menu actions', 
 })
 
 test('keeps the native view active when its binding is incompatible', () => {
+  storeData.clear()
   const f = fixture({ compatible: false })
   plugin.apply(f.ctx)
   try {
-    assert.deepEqual(f.entries, [f.native])
+    assert.deepEqual(f.bySlot('sidebar.workspaces'), [f.native])
     assert.equal(f.menu.size, 0)
   } finally {
     f.stop()
@@ -208,7 +261,8 @@ test('keeps the native view active when its binding is incompatible', () => {
 })
 
 test('cycles the header view, reopens it for new sessions, and keeps it out of storage', () => {
-  saved = '["alpha","beta"]'
+  storeData.clear()
+  setSaved('["alpha","beta"]')
   const watched = createWatched(storage)
   const views = []
   watched.subscribe(() => views.push(watched.getSnapshot().view))
@@ -231,7 +285,7 @@ test('cycles the header view, reopens it for new sessions, and keeps it out of s
   watched.watch('alpha', 'Alpha')
   assert.equal(watched.getSnapshot().view, 'all')
   assert.deepEqual(views, ['collapsed', 'attention', 'attention', 'attention', 'all', 'collapsed', 'all', 'collapsed', 'all'])
-  assert.equal(saved, '["beta","gamma","alpha"]')
+  assert.equal(saved(), '["beta","gamma","alpha"]')
   assert.equal(createWatched(storage).getSnapshot().view, 'all')
 })
 
@@ -269,7 +323,7 @@ test('needs attention matches the session list toggle criterion', () => {
 })
 
 test('passes the optional draft service to the browser and releases it', () => {
-  saved = null
+  storeData.clear()
   const f = fixture()
   plugin.apply(f.ctx)
   try {
@@ -344,7 +398,7 @@ test('renders the watched section header aligned with sidebar section headers', 
     }
     return require(name)
   })
-  const WatchedArea = areaPlugin.__test.WatchedArea
+  const Area = areaPlugin.__test.WatchedArea
   const drag = {
     source: null, overTop: false, overList: false, marker: undefined,
     hoverTop: () => false, leaveTop: () => {}, dropTop: () => false,
@@ -354,7 +408,7 @@ test('renders the watched section header aligned with sidebar section headers', 
   const shouldExpand = (type: unknown) => type === TooltipStub || (typeof type === 'function' && type.name === 'Fold')
   const renderArea = (view: 'all' | 'collapsed' | 'attention', onCycleView: () => void) => {
     nextId = 0
-    return expandNode(WatchedArea({
+    return expandNode(Area({
       rows: [{ id: 'alpha', title: 'Alpha' }, { id: 'beta', title: 'Beta' }],
       view,
       attention: new Set(['alpha']),
@@ -430,4 +484,210 @@ test('renders the watched section header aligned with sidebar section headers', 
   assert.match(styles, /\.watched_heading:focus-visible\s*\{\s*outline:\s*var\(--dsw-focus-ring-width,\s*1px\) solid var\(--dsw-focus-ring-color,\s*var\(--dsw-alias-state-business-primary\)\);\s*outline-offset:\s*-2px;?\s*\}/)
   assert.match(styles, /\.watched_arrow path\s*\{[^}]*stroke-opacity:\s*0/)
   assert.match(styles, /\.watched_heading\[data-view=attention\] \.watched_arrow path\s*\{\s*fill-opacity:\s*0;\s*stroke-opacity:\s*1;?\s*\}/)
+})
+
+test('persists watch mode preference and handles storage failures', () => {
+  storeData.clear()
+  const wm = createWatchMode(storage)
+  assert.equal(wm.getSnapshot(), false)
+  let notifications = 0
+  const unsub = wm.subscribe(() => { notifications += 1 })
+  assert.equal(wm.setEnabled(false), true)
+  assert.equal(notifications, 0)
+  assert.equal(wm.setEnabled(true), true)
+  assert.equal(notifications, 1)
+  assert.equal(storeData.get(WATCH_MODE_STORAGE_KEY), 'true')
+  storeData.set(WATCH_MODE_STORAGE_KEY, 'false')
+  wm.sync()
+  assert.equal(wm.getSnapshot(), false)
+  assert.equal(notifications, 2)
+  unsub()
+
+  const broken = createWatchMode({
+    getItem() { throw new Error('blocked') },
+    setItem() { throw new Error('quota') },
+  })
+  assert.equal(broken.getSnapshot(), false)
+  assert.equal(broken.setEnabled(true), false)
+  assert.equal(broken.getSnapshot(), true)
+})
+
+test('formats elapsed durations compactly across units', () => {
+  const format = (key: string, params?: Record<string, unknown>) => {
+    const map: Record<string, string> = {
+      durationS: `${params?.s}s`,
+      durationM: `${params?.m}m`,
+      durationMS: `${params?.m}m ${params?.s}s`,
+      durationH: `${params?.h}h`,
+      durationHM: `${params?.h}h ${params?.m}m`,
+      durationD: `${params?.d}d`,
+      durationDH: `${params?.d}d ${params?.h}h`,
+    }
+    return map[key] ?? key
+  }
+  assert.equal(formatDuration(-500, format), '0s')
+  assert.equal(formatDuration(Number.NaN, format), '0s')
+  assert.equal(formatDuration(45_900, format), '45s')
+  assert.equal(formatDuration(60_000, format), '1m')
+  assert.equal(formatDuration(95_000, format), '1m 35s')
+  assert.equal(formatDuration(3_600_000, format), '1h')
+  assert.equal(formatDuration((2 * 3600 + 15 * 60) * 1000, format), '2h 15m')
+  assert.equal(formatDuration(86_400_000, format), '1d')
+  assert.equal(formatDuration((3 * 86400 + 4 * 3600) * 1000, format), '3d 4h')
+})
+
+test('batches runtime requests, caches hits, retries status races, and stops clock when idle', async () => {
+  const requests: URL[] = []
+  let now = 10_000
+  let mode: 'ok' | 'race' | 'fail' = 'ok'
+  const client = createRuntimeClient({
+    baseURI: () => 'http://localhost:47311/',
+    now: () => now,
+    fetch: async (input) => {
+      const url = input instanceof URL ? input : new URL(String(input))
+      requests.push(url)
+      if (mode === 'fail') return new Response('err', { status: 500 })
+      const idsRequested = url.searchParams.getAll('id')
+      const runtimes = Object.fromEntries(idsRequested.map(id => [
+        id,
+        id === 'live'
+          ? { completedMs: 5_000, runningSince: mode === 'race' ? null : 9_000 }
+          : { completedMs: 12_000, runningSince: null },
+      ]))
+      if (mode === 'race') mode = 'ok'
+      return Response.json({ runtimes })
+    },
+  })
+
+  try {
+    let ticks = 0
+    const stopA = client.track('alpha', '1:0:0', false)
+    const stopB = client.track('live', '2:1:0', true)
+    const stopB2 = client.track('live', '2:1:0', true)
+    assert.deepEqual(client.getEntry('alpha'), { status: 'loading' })
+
+    await new Promise(resolve => setTimeout(resolve, 40))
+    assert.equal(requests.length, 1)
+    assert.deepEqual(requests[0].searchParams.getAll('id'), ['alpha', 'live'])
+    assert.deepEqual(client.getEntry('alpha'), { status: 'ready', completedMs: 12_000, runningSince: null })
+    assert.deepEqual(client.getEntry('live'), { status: 'ready', completedMs: 5_000, runningSince: 9_000 })
+
+    // Same signature does not trigger redundant network fetch.
+    const stopADup = client.track('alpha', '1:0:0', false)
+    await new Promise(resolve => setTimeout(resolve, 30))
+    assert.equal(requests.length, 1)
+    stopADup()
+    stopA()
+
+    const stopClock = client.subscribeClock(() => { ticks += 1 })
+    now = 11_100
+    await new Promise(resolve => setTimeout(resolve, 1_100))
+    assert.ok(ticks >= 1)
+    stopClock()
+
+    // Status race retry when client thinks session is running but host returns runningSince: null once.
+    mode = 'race'
+    const stopRace = client.track('live', '3:1:0', true)
+    await new Promise(resolve => setTimeout(resolve, 500))
+    assert.equal(requests.length, 3)
+    assert.deepEqual(client.getEntry('live'), { status: 'ready', completedMs: 5_000, runningSince: 9_000 })
+    stopRace()
+    stopB()
+    stopB2()
+
+    // Error state preserves pre-existing ready cache, marks fresh unknown entries as error.
+    mode = 'fail'
+    const stopErr = client.track('unknown', '1:0:0', false)
+    await new Promise(resolve => setTimeout(resolve, 40))
+    assert.deepEqual(client.getEntry('unknown'), { status: 'error' })
+    stopErr()
+  } finally {
+    client.dispose()
+  }
+})
+
+test('switches icons, titles, detail-page setting, and overlay CSS in watch mode', () => {
+  const TooltipStub = ({ children }: { children?: unknown }) => children
+  const SwitchStub = (props: Record<string, unknown>) => ({ type: 'switch-stub', props })
+  let nextId = 0
+  const react = {
+    ...require('react'),
+    useId: () => `:watch-${nextId++}:`,
+    useSyncExternalStore: (subscribe: (cb: () => void) => () => void, getSnapshot: () => unknown) => {
+      void subscribe
+      return getSnapshot()
+    },
+  }
+  const uiPlugin = registration.factory((name: string) => {
+    if (name === 'react') return react
+    if (name === '@deepseek-ai/dsh-client-ui-primitives') {
+      return { HoverCardGroup: ({ children }: { children?: unknown }) => children, Tooltip: TooltipStub, Switch: SwitchStub }
+    }
+    return require(name)
+  })
+
+  const shouldExpand = (type: unknown) =>
+    type === TooltipStub || (typeof type === 'function' && ['Fold', 'EyeIcon', 'WatchIcon'].includes(type.name))
+
+  const dragAdding = {
+    source: { origin: 'list', id: 'beta' }, overTop: false, overList: false, marker: undefined,
+    hoverTop: () => false, leaveTop: () => {}, dropTop: () => false,
+    beginTop: () => {}, endTop: () => {}, beginList: () => {}, endList: () => false,
+    hoverList: () => false, leaveList: () => {}, dropList: () => false,
+  }
+  const areaWatch = expandNode(uiPlugin.__test.WatchedArea({
+    rows: [{ id: 'alpha', title: 'Alpha' }],
+    view: 'all',
+    attention: new Set(),
+    onCycleView: () => {},
+    drag: dragAdding,
+    label: (key: string) => key,
+    currentId: undefined,
+    watchMode: true,
+  }), shouldExpand)
+
+  const headerButton = findElement(areaWatch, element => element.type === 'button')
+  assert.equal(headerButton?.props?.['aria-label'], 'watchCollapse')
+  const titleSpan = findElement(headerButton, element => element.type === 'span' && element.props?.children === 'watchSection')
+  assert.ok(titleSpan)
+  assert.ok(findElement(areaWatch, element => element.type === 'svg' && element.props?.['data-dsh-watch-icon'] === 'watch'))
+  assert.ok(findElement(areaWatch, element => element.type === 'span' && element.props?.children === 'watchDrop'))
+
+  const dragReturning = { ...dragAdding, source: { origin: 'top', id: 'alpha' } }
+  const returnWatch = expandNode(uiPlugin.__test.WatchedReturnTarget({
+    drag: dragReturning,
+    label: (key: string) => key,
+    watchMode: true,
+  }), shouldExpand)
+  assert.ok(findElement(returnWatch, element => element.type === 'svg' && element.props?.['data-dsh-watch-icon'] === 'watch-off'))
+  assert.ok(findElement(returnWatch, element => element.type === 'span' && element.props?.children === 'watchReturn'))
+
+  const returnEye = expandNode(uiPlugin.__test.WatchedReturnTarget({
+    drag: dragReturning,
+    label: (key: string) => key,
+    watchMode: false,
+  }), shouldExpand)
+  assert.ok(findElement(returnEye, element => element.type === 'svg' && element.props?.['data-dsh-watch-icon'] === 'eye-off'))
+
+  storeData.clear()
+  const wm = uiPlugin.__test.createWatchMode(storage)
+  assert.equal(uiPlugin.__test.WatchModeSettings({ view: 'summary', watchMode: wm, t: (k: string) => k }), null)
+  const pageView = uiPlugin.__test.WatchModeSettings({ view: 'page', watchMode: wm, t: (k: string) => k })
+  const sw = findElement(pageView, element => element.type === SwitchStub)
+  assert.equal(sw?.props?.checked, false)
+  assert.equal(sw?.props?.label, 'watchMode')
+  ;(sw?.props?.onChange as (next: boolean) => void)(true)
+  assert.equal(wm.getSnapshot(), true)
+
+  assert.equal(uiPlugin.__test.WatchModeOverlay({ useWatchMode: (sel: (v: boolean) => boolean) => sel(false) }), null)
+  const overlayOn = uiPlugin.__test.WatchModeOverlay({ useWatchMode: (sel: (v: boolean) => boolean) => sel(true) })
+  const overlayStyle = findElement(overlayOn, element => element.type === 'style')
+  assert.equal(typeof overlayStyle?.props?.children, 'string')
+  const cssText = overlayStyle?.props?.children as string
+  assert.match(cssText, /img\[src="data:image\/svg\+xml;base64,/)
+  assert.match(cssText, /content: url\("data:image\/svg\+xml,/)
+  assert.match(cssText, /\.Rows_timestamp\s*\{\s*display:\s*none;/)
+
+  const builtCss = buildWatchModeCss('a', 'b')
+  assert.match(builtCss, /img\[src="a"\],\s*img\[src="b"\]/)
 })

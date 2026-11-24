@@ -9,17 +9,24 @@ import type {} from '@deepseek-ai/dsh-api-session-controller/client'
 import type {} from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { MenuAction } from '@deepseek-ai/dsh-client-ui-context-menu/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
-import type { StoredEntry } from '@deepseek-ai/dsh-client-ui-slots'
+import type { PropsLocale, PropsRuntime, StoredEntry } from '@deepseek-ai/dsh-client-ui-slots'
 import type { WorkspaceBrowserInjected } from '@deepseek-ai/dsh-client-ui-workspace/client'
 import type { createWorkspaceViewStore } from '@deepseek-ai/dsh-client-ui-workspace/src/client/stores.ts'
+import { createElement } from 'react'
+import { needsAttention } from './attention'
 import { WatchedBrowser, type RunRowAction } from './browser'
 import { connectDrafts, type DraftSource } from './drafts'
-import { needsAttention } from './attention'
 import { LABELS, NS } from './labels'
+import { createRuntimeClient, formatDuration, type RuntimeClient } from './runtime'
+import { buildWatchModeCss, WatchModeOverlay, WatchModeSettings } from './watch-mode-settings'
+import { createWatchMode, WATCH_MODE_STORAGE_KEY, type WatchMode } from './watch-mode'
 import { canWatch, createWatched, STORAGE_KEY, type Watched } from './watched'
-import { WatchedArea } from './watched-area'
+import { WatchedArea, WatchedReturnTarget } from './watched-area'
 
+const BUNDLE = '@miorin/dsh-watched-sessions'
 const BROWSER_SLOT = 'sidebar.workspaces'
+const CONFIG_SLOT = 'plugins.bundle.config'
+const OVERLAY_SLOT = 'shell.overlay'
 const NATIVE_VIEW_PERSIST = 'dsh.workspace.view.v5'
 const NATIVE_ACTIONS = [
   'settleWorkspaceAction', 'startSession', 'open', 'searchSessions', 'requestSessionRename', 'notifyArchivedNotOpenable',
@@ -51,7 +58,13 @@ function readableStorage(): Storage | undefined {
   try { return window.localStorage } catch { return undefined }
 }
 
-function mountBrowser(ctx: Context, watched: Watched, drafts: DraftSource): () => void {
+function mountBrowser(
+  ctx: Context,
+  watched: Watched,
+  watchMode: WatchMode,
+  drafts: DraftSource,
+  runtime: RuntimeClient,
+): () => void {
   const labelWatched = ctx.locale.bind(NS)
   let native: StoredEntry | undefined
   let disposeBrowser: (() => void) | undefined
@@ -87,26 +100,27 @@ function mountBrowser(ctx: Context, watched: Watched, drafts: DraftSource): () =
       name: BROWSER_SLOT, priority: (winner.options.priority ?? 0) - 1,
       store: binding.store, locale: 'workspace',
       inject: () => ({
-        ...binding.injected, watched, labelWatched, runRowAction,
-        hooks: { ...binding.injected.hooks, watched, watchedDrafts: drafts },
+        ...binding.injected, watched, labelWatched, runRowAction, runtime,
+        hooks: { ...binding.injected.hooks, watched, watchedDrafts: drafts, watchMode },
       }),
     }, WatchedBrowser)
     const unmenu = ctx.contextMenus.register({
       target: 'session', id: `${NS}.toggle`, order: 110,
-      observe: () => [watched, ctx.sessions.list, ctx.workspaces.list, ctx.locale],
+      observe: () => [watched, watchMode, ctx.sessions.list, ctx.workspaces.list, ctx.locale],
       resolve: ({ sessionId, displayTitle }) => {
         const eligible = (id: typeof sessionId) => canWatch(
           ctx.sessions.list.getSnapshot(), ctx.workspaces.list.getSnapshot().archivedSessionIds, id,
         )
         if (!eligible(sessionId)) return []
+        const inWatchMode = watchMode.getSnapshot()
         const visible = watched.getSnapshot().ids.filter(eligible)
         const index = visible.indexOf(sessionId)
         if (index < 0) return [{
-          id: 'watch', label: labelWatched('watch'),
+          id: 'watch', label: labelWatched(inWatchMode ? 'watchWatch' : 'watch'),
           run: () => { if (eligible(sessionId)) watched.watch(sessionId, displayTitle) },
         }]
         const actions: MenuAction[] = [{
-          id: 'unwatch', label: labelWatched('unwatch'), run: () => { watched.unwatch(sessionId, displayTitle) },
+          id: 'unwatch', label: labelWatched(inWatchMode ? 'watchUnwatch' : 'unwatch'), run: () => { watched.unwatch(sessionId, displayTitle) },
         }]
         if (index > 0) actions.push({
           id: 'move-up', label: labelWatched('moveUp'), run: () => { watched.moveBy(sessionId, -1, eligible) },
@@ -128,18 +142,46 @@ function mountBrowser(ctx: Context, watched: Watched, drafts: DraftSource): () =
 export const inject = ['locale', 'slots', 'contextMenus', 'workspaces', 'sessions']
 
 export function apply(ctx: Context): void {
-  const watched = createWatched(readableStorage())
+  const storage = readableStorage()
+  const watched = createWatched(storage)
+  const watchMode = createWatchMode(storage)
   const drafts = connectDrafts(ctx)
+  const runtime = createRuntimeClient()
   ctx.effect(() => ctx.locale.register(NS, LABELS), `${NS}: locale`)
+  ctx.effect(() => () => { runtime.dispose() }, `${NS}: runtime`)
   ctx.effect(() => {
-    const onStorage = (event: StorageEvent) => { if (event.key === STORAGE_KEY || event.key === null) watched.sync() }
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === STORAGE_KEY || event.key === null) watched.sync()
+      if (event.key === WATCH_MODE_STORAGE_KEY || event.key === null) watchMode.sync()
+    }
     const removeArchived = () => watched.removeArchived(ctx.workspaces.list.getSnapshot().archivedSessionIds)
     removeArchived()
     const unsubscribe = ctx.workspaces.list.subscribe(removeArchived)
     window.addEventListener('storage', onStorage)
     return () => { window.removeEventListener('storage', onStorage); unsubscribe() }
   }, `${NS}: preferences`)
-  ctx.slots.inject(BROWSER_SLOT, () => mountBrowser(ctx, watched, drafts))
+  ctx.slots.inject(CONFIG_SLOT, () => ctx.slots.register({ name: CONFIG_SLOT, key: BUNDLE, locale: NS },
+    ({ view, t }: PropsRuntime<typeof CONFIG_SLOT> & PropsLocale<typeof NS>) =>
+      createElement(WatchModeSettings, { view, watchMode, t }),
+  ))
+  ctx.slots.inject(OVERLAY_SLOT, () => ctx.slots.register({
+    name: OVERLAY_SLOT, id: `${NS}.watch-mode`, inject: () => ({ hooks: { watchMode } }),
+  }, WatchModeOverlay))
+  ctx.slots.inject(BROWSER_SLOT, () => mountBrowser(ctx, watched, watchMode, drafts, runtime))
 }
 
-export const __test = { canWatch, createWatched, needsAttention, workspaceBinding, WatchedArea }
+export const __test = {
+  buildWatchModeCss,
+  canWatch,
+  createRuntimeClient,
+  createWatchMode,
+  createWatched,
+  formatDuration,
+  needsAttention,
+  WATCH_MODE_STORAGE_KEY,
+  WatchedArea,
+  WatchedReturnTarget,
+  WatchModeOverlay,
+  WatchModeSettings,
+  workspaceBinding,
+}

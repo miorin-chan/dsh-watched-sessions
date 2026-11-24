@@ -280,3 +280,33 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+.runtimeTime {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@media (hover: none) {
+  .runtimeTime {
+    display: none;
+  }
+}
+
+.hoverRuntime {
+  font-variant-numeric: tabular-nums;
+}
+
+.settingRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-block-size: 36px;
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+}
+
+.settingLabel {
+  min-inline-size: 0;
+  cursor: pointer;
+}

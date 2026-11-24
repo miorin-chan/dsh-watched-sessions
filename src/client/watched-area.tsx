@@ -17,6 +17,11 @@ const TRIANGLE = 'M5.5 4.5C5.5 4.40714 5.52586 4.31612 5.57467 4.23713C5.62349 4
 
 /** The button names the view a click moves to. */
 const NEXT_LABEL = { all: 'collapse', collapsed: 'attention', attention: 'expand' } as const satisfies Record<WatchedView, WatchedLabel>
+const WATCH_NEXT_LABEL = {
+  all: 'watchCollapse',
+  collapsed: 'watchAttention',
+  attention: 'watchExpand',
+} as const satisfies Record<WatchedView, WatchedLabel>
 
 /** Collapsed folds stay mounted so their height can animate; `inert` keeps their rows out of focus and hit tests. */
 function Fold({ id, open, children, className }: { id?: string; open: boolean; children: ReactNode; className?: string }) {
@@ -29,8 +34,8 @@ function Fold({ id, open, children, className }: { id?: string; open: boolean; c
 
 function EyeIcon({ off = false }: { off?: boolean }) {
   return (
-    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor"
-      strokeWidth="1.2" strokeLinejoin="round">
+    <svg aria-hidden="true" data-dsh-watch-icon={off ? 'eye-off' : 'eye'} width="16" height="16" viewBox="0 0 16 16"
+      fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round">
       <path d="M1.75 8C3.1 5.4 5.35 3.9 8 3.9S12.9 5.4 14.25 8C12.9 10.6 10.65 12.1 8 12.1S3.1 10.6 1.75 8Z" />
       <circle cx="8" cy="8" r="2" />
       {off && <path d="M2.75 2.75 13.25 13.25" strokeLinecap="round" />}
@@ -38,8 +43,22 @@ function EyeIcon({ off = false }: { off?: boolean }) {
   )
 }
 
+function WatchIcon({ off = false }: { off?: boolean }) {
+  return (
+    <svg aria-hidden="true" data-dsh-watch-icon={off ? 'watch-off' : 'watch'} width="16" height="16" viewBox="0 0 16 16"
+      fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5.75 4.4V2.1a.6.6 0 0 1 .6-.6h3.3a.6.6 0 0 1 .6.6v2.3" />
+      <path d="M5.75 11.6v2.3a.6.6 0 0 0 .6.6h3.3a.6.6 0 0 0 .6-.6v-2.3" />
+      <circle cx="8" cy="8" r="3.9" />
+      <path d="M12.6 7.1v1.8" />
+      <path d="M8 6.1V8l1.5 1" />
+      {off && <path d="M2.75 2.75 13.25 13.25" />}
+    </svg>
+  )
+}
+
 /** Use the stock session row so status, navigation, focus and menus behave the same in both regions. */
-export function WatchedArea({ rows, view, attention, onCycleView, drag, label, currentId, ...rowProps }: Omit<
+export function WatchedArea({ rows, view, attention, onCycleView, drag, label, currentId, watchMode = false, ...rowProps }: Omit<
   ComponentProps<typeof SessionNodeItem>, 'node' | 'drag' | 'now' | 'onReveal' | 'currentId'
 > & {
   rows: readonly SessionNode[]
@@ -49,13 +68,14 @@ export function WatchedArea({ rows, view, attention, onCycleView, drag, label, c
   drag: WatchDrag
   label: WatchedTranslate
   currentId: SessionId | undefined
+  watchMode?: boolean
 }) {
   const paneId = useId()
-  const sectionTitle = label('section')
+  const sectionTitle = label(watchMode ? 'watchSection' : 'section')
   const adding = drag.source?.origin === 'list'
   const shown = (id: SessionId) => view !== 'attention' || attention.has(id)
   const quiet = view === 'attention' && rows.every(row => !shown(row.id))
-  const next = label(NEXT_LABEL[view])
+  const next = label((watchMode ? WATCH_NEXT_LABEL : NEXT_LABEL)[view])
   const now = Date.now()
 
   return (
@@ -106,7 +126,7 @@ export function WatchedArea({ rows, view, attention, onCycleView, drag, label, c
           <div
             className={css.rows}
             role="tree"
-            aria-label={label('section')}
+            aria-label={sectionTitle}
             onWheelCapture={event => {
               const list = event.currentTarget
               if (list.scrollHeight > list.clientHeight) event.stopPropagation()
@@ -134,15 +154,15 @@ export function WatchedArea({ rows, view, attention, onCycleView, drag, label, c
             </HoverCardGroup>
           </div>
           <Fold open={quiet && !adding}>
-            <div className={css.note}>{label('empty')}</div>
+            <div className={css.note}>{label(watchMode ? 'watchEmpty' : 'empty')}</div>
           </Fold>
         </Fold>
       </Fold>
       <Fold open={adding}>
         <div className={clsx(css.dropRow, adding && drag.overTop && drag.marker === undefined && css.over)}
           role={adding ? 'status' : undefined}>
-          <span className={css.dropIcon}><EyeIcon /></span>
-          <span className={css.dropLabel}>{label('drop')}</span>
+          <span className={css.dropIcon}>{watchMode ? <WatchIcon /> : <EyeIcon />}</span>
+          <span className={css.dropLabel}>{label(watchMode ? 'watchDrop' : 'drop')}</span>
         </div>
       </Fold>
     </section>
@@ -177,14 +197,18 @@ export function watchedReturnClass(drag: WatchDrag): string | undefined {
 }
 
 /** The hint floats over the top of the list, so starting a drag never shifts the rows under the pointer. */
-export function WatchedReturnTarget({ drag, label }: { drag: WatchDrag; label: WatchedTranslate }) {
+export function WatchedReturnTarget({ drag, label, watchMode = false }: {
+  drag: WatchDrag
+  label: WatchedTranslate
+  watchMode?: boolean
+}) {
   if (drag.source?.origin !== 'top') return null
   return (
     <div className={css.returnAnchor}>
       <div role="status" className={clsx(css.returnTarget, drag.overList && css.over)}
         data-dsh-watched-sessions-return="" {...returnDropHandlers(drag)}>
-        <span className={css.dropIcon}><EyeIcon off /></span>
-        <span className={css.dropLabel}>{label('return')}</span>
+        <span className={css.dropIcon}>{watchMode ? <WatchIcon off /> : <EyeIcon off />}</span>
+        <span className={css.dropLabel}>{label(watchMode ? 'watchReturn' : 'return')}</span>
       </div>
     </div>
   )

@@ -1,5 +1,6 @@
-# Activates the bundle. The Host half is inert; the Client half ships through
-# package.json `dsh.client` and carries Watched sessions.
+# Activates the bundle. The Host half serves the authenticated session runtime
+# endpoint; the Client half ships through package.json `dsh.client` and carries
+# Watched sessions and Watch Mode.
 - insert:
     - id: dsh-watched-sessions
       name: '@miorin/dsh-watched-sessions'

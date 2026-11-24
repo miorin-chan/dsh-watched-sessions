@@ -9,7 +9,10 @@ Where the two conflict, this file wins.
 
 This bundle keeps watched sessions in a section above the session list.
 Dragging a session opens a temporary drop row that adds it to the section.
-The client saves the ordered session IDs as a view preference.
+The client saves the ordered session IDs and Watch Mode toggle as view preferences.
+The detail-page switch (`plugins.bundle.config`) turns on Watch Mode, replacing eye icons
+with watches, changing the title to **Watches**, and reading total session runtimes
+from the Host's authenticated `/api/watched-sessions/runtime` endpoint via `ctx.sessionQuery`.
 The section header layout and styling match `dsh-background-jobs-sidebar`, while clicking it cycles all,
 collapsed, and Needs attention like `dsh-workspace-list-toggle`, with the same attention criterion.
 Keep the native workspace membership, regular pin, filter, and ordering semantics when adapting the browser.

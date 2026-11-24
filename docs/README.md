@@ -15,6 +15,17 @@
 会话操作通过 `contextMenus` 执行。
 第三方插件通过原生行插槽添加的标记、按钮和悬停内容由原生浏览区渲染，停用本插件即可恢复。
 
+## 「你在被做成表」彩蛋模式
+
+在 `plugins.bundle.config` 详情页开关打开 **你在被做成表** 后，开关状态作为客户端偏好保存在 `localStorage` 中，
+并经由 `shell.overlay` 生效：
+
+- 客户端通过样式规则将插件卡片、详情页和拖放提示中的眼睛图标替换为手表，并把分区标题、提示和菜单文案切为「表会话」。
+- 浏览区借助 `sidebar.session.row.trailing` 与 `sidebar.session.row.hover` 插槽向宿主发起
+  按批去重的 `GET /api/watched-sessions/runtime` 鉴权请求。
+- 宿主在 [运行时长模块](../src/lib/runtime.ts) 中经由 `ctx.sessionQuery.observeSession(..., { projectionMode: 'none' })`
+  汇总已结束回合时长，仅对当前存活且运行中的会话回传活跃回合起始时间，由客户端按秒跳表，同时保留待审批等交互标签。
+
 ## 分区视图
 
 分区标题的盒模型、文字颜色、悬停反馈、

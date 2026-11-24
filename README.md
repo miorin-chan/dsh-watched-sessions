@@ -36,4 +36,8 @@ Archiving a session stops watching it.
 The plugin uses the single workspace browser slot.
 While active, it hides decorations and buttons that other plugins add through the native session row slots.
 
+Enabling **You are being turned into a watch** on the plugin detail page turns the eye icons into watches,
+changes the section heading to **Watches**, and replaces each session's last-interaction time
+with its total running duration while keeping pending-interaction labels intact.
+
 [Project documentation](docs/README.md)
