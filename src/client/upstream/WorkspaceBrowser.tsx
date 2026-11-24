@@ -47,7 +47,6 @@ import css from '@deepseek-ai/dsh-client-ui-workspace/src/client/rows/WorkspaceB
 import type { DraftSource } from '../drafts'
 import { useWatchDrag, type WatchDrag } from '../drag'
 import type { WatchedTranslate } from '../labels'
-import type { RuntimeClient } from '../runtime'
 import { canWatch, type Watched } from '../watched'
 import { needsAttention } from '../attention'
 import { returnDropHandlers, WatchedArea, WatchedReturnTarget, watchedReturnClass } from '../watched-area'
@@ -61,7 +60,6 @@ export type WatchedBrowserProps = WorkspaceBrowserProps & {
   useWatched: import('@deepseek-ai/dsh-client-ui-slots').SnapshotSelectorHook<ReturnType<Watched['getSnapshot']>>
   useWatchedDrafts: import('@deepseek-ai/dsh-client-ui-slots').SnapshotSelectorHook<ReturnType<DraftSource['getSnapshot']>>
   useWatchMode: import('@deepseek-ai/dsh-client-ui-slots').SnapshotSelectorHook<boolean>
-  runtime: RuntimeClient
   labelWatched: WatchedTranslate
   renderWatchedSlot?: WorkspaceBrowserProps['renderSlot']
 }

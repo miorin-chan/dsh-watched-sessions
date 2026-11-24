@@ -16,7 +16,10 @@ declare const __WATCHED_STYLES__: string
 type RowTarget = Extract<ContextMenuTarget, { kind: 'session' }>
 export type RunRowAction = (target: RowTarget, iconKey: string) => void
 
-type BrowserProps = Omit<WatchedBrowserProps, 'renderSlot' | 'renderWatchedSlot' | '__renders'> & { runRowAction: RunRowAction }
+type BrowserProps = Omit<WatchedBrowserProps, 'renderSlot' | 'renderWatchedSlot' | '__renders'> & {
+  runRowAction: RunRowAction
+  runtime: RuntimeClient
+}
 
 type SessionRuntimeHookProps = {
   sessionId: SessionId
@@ -79,7 +82,8 @@ function SessionHoverRuntime(props: SessionRuntimeHookProps) {
 
 /** The stock browser's child slot declarations remain with its registration. Reuse its structured actions here. */
 export function WatchedBrowser(props: BrowserProps) {
-  const { runRowAction, runtime, t, labelWatched, useSessionAccess, useSessionStatus, useSessions, useWorkspaces, useWatchMode } = props
+  const { runtime, ...browserProps } = props
+  const { runRowAction, t, labelWatched, useSessionAccess, useSessionStatus, useSessions, useWorkspaces, useWatchMode } = browserProps
   const watchModeEnabled = useWatchMode(enabled => enabled)
   const renderRowParts: WatchedBrowserProps['renderSlot'] = useCallback((name, owner) => {
     if (name !== 'sidebar.workspaces.session.row.action') return null
@@ -106,7 +110,7 @@ export function WatchedBrowser(props: BrowserProps) {
   return (
     <>
       <style>{__WATCHED_STYLES__}</style>
-      <WorkspaceBrowser {...props} renderSlot={renderRowParts} renderWatchedSlot={renderWatchedRowParts} />
+      <WorkspaceBrowser {...browserProps} renderSlot={renderRowParts} renderWatchedSlot={renderWatchedRowParts} />
     </>
   )
 }
