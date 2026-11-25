@@ -881,7 +881,7 @@ test('exposes watch mode settings on own bundle config and scopes runtime slots 
   const settingsStyle = findElement(settings, element => element.type === 'style')
   const settingsCss = String(settingsStyle?.props?.children ?? '')
   assert.match(settingsCss, /\[data-dsh-aggregate-member\]/)
-  assert.match(settingsCss, /--dsw-alias-card-fill/)
+  assert.doesNotMatch(settingsCss, /--dsw-alias-card-fill/)
   assert.match(settingsCss, /@container \(max-width:\s*440px\)/)
 
   const runtime = uiPlugin.__test.createRuntimeClient()

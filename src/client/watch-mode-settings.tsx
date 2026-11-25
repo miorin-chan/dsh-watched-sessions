@@ -65,7 +65,7 @@ export function WatchModeSettings({ view, watchMode, t }: {
       <div className={css.settingsHead}>
         <h4 className={css.settingsHeading}>{t('settingsSection')}</h4>
       </div>
-      <div className={css.settingsCard}>
+      <div className={css.settingsList}>
         <div className={css.settingRow} data-dsh-watched-sessions-watch-mode-setting="">
           <span className={css.settingIcon} aria-hidden="true">
             <IconClockOutlineMedium size={16} />
