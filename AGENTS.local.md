@@ -15,7 +15,7 @@ in an aggregate bundle) turns on Watch Mode, replacing eye icons with watches,
 changing the title to **Watches**, and showing total session runtimes for watched sessions only
 from the Host's authenticated `/api/watched-sessions/runtime` endpoint via `ctx.sessionQuery`.
 The section header layout and styling match `dsh-background-jobs-sidebar`, while clicking it cycles all,
-collapsed, and Needs attention like `dsh-workspace-list-toggle`, with the same attention criterion.
+collapsed, and Needs attention like `dsh-session-list-toggle`, with the same attention criterion.
 Keep the native workspace membership, regular pin, filter, and ordering semantics when adapting the browser.
 
 ## Project documentation

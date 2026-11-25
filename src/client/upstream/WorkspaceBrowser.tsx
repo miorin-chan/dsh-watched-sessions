@@ -1203,7 +1203,8 @@ export function WorkspaceBrowser({
       const parentMenu = to === 'list' && browser.querySelector<HTMLElement>(
         `[data-row-key="workspace:${CSS.escape(workspace)}"] button[data-context-menu-trigger]`,
       )
-      const target = row ?? (parentMenu || undefined) ?? browser.querySelector<HTMLElement>('[data-sidebar-workspace-header] button')
+      const headerFallback = searchRoot.current?.querySelector('button') ?? wsPlusRef.current
+      const target = row ?? (parentMenu || undefined) ?? headerFallback
       target?.focus()
     })
     return () => { cancelAnimationFrame(frame) }
