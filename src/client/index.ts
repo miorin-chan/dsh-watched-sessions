@@ -19,7 +19,7 @@ import { WatchedBrowser, type RunRowAction } from './browser'
 import { connectDrafts, type DraftSource } from './drafts'
 import { LABELS, NS } from './labels'
 import { createRuntimeClient, formatDuration, type RuntimeClient } from './runtime'
-import { AggregatedWatchModeSettings, buildWatchModeCss, WatchModeOverlay, WatchModeSettings } from './watch-mode-settings'
+import { buildWatchModeCss, WatchModeOverlay, WatchModeSettings } from './watch-mode-settings'
 import { createWatchMode, WATCH_MODE_STORAGE_KEY, type WatchMode } from './watch-mode'
 import { canWatch, createWatched, STORAGE_KEY, type Watched } from './watched'
 import { WatchedArea, WatchedReturnTarget } from './watched-area'
@@ -27,7 +27,6 @@ import { WatchedArea, WatchedReturnTarget } from './watched-area'
 const BUNDLE = '@miorin/dsh-watched-sessions'
 const BROWSER_SLOT = 'sidebar.workspaces'
 const CONFIG_SLOT = 'plugins.bundle.config'
-const DETAIL_SLOT = 'plugins.detail.section'
 const OVERLAY_SLOT = 'shell.overlay'
 const NATIVE_VIEW_PERSIST = 'dsh.workspace.view.v5'
 const NATIVE_ACTIONS = [
@@ -172,10 +171,6 @@ export function apply(ctx: Context): void {
     ({ view, t }: PropsRuntime<typeof CONFIG_SLOT> & PropsLocale<typeof NS>) =>
       createElement(WatchModeSettings, { view, watchMode, t }),
   ))
-  ctx.slots.inject(DETAIL_SLOT, () => ctx.slots.register({ name: DETAIL_SLOT, id: NS, locale: NS },
-    ({ subject, t }: PropsRuntime<typeof DETAIL_SLOT> & PropsLocale<typeof NS>) =>
-      createElement(AggregatedWatchModeSettings, { subject, bundleName: BUNDLE, rowId: NS, watchMode, t }),
-  ))
   ctx.slots.inject(OVERLAY_SLOT, () => ctx.slots.register({
     name: OVERLAY_SLOT, id: `${NS}.watch-mode`, inject: () => ({ hooks: { watchMode } }),
   }, WatchModeOverlay))
@@ -183,7 +178,6 @@ export function apply(ctx: Context): void {
 }
 
 export const __test = {
-  AggregatedWatchModeSettings,
   buildWatchModeCss,
   canWatch,
   createRuntimeClient,

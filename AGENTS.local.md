@@ -10,8 +10,7 @@ Where the two conflict, this file wins.
 This bundle keeps watched sessions in a section above the session list.
 Dragging a session opens a temporary drop row that adds it to the section.
 The client saves the ordered session IDs and Watch Mode toggle as view preferences.
-The detail-page switch (`plugins.bundle.config`, and `plugins.detail.section` when included
-in an aggregate bundle) turns on Watch Mode, replacing eye icons with watches,
+The detail-page switch (`plugins.bundle.config`) turns on Watch Mode, replacing eye icons with watches,
 changing the title to **Watches**, and showing total session runtimes for watched sessions only
 from the Host's authenticated `/api/watched-sessions/runtime` endpoint via `ctx.sessionQuery`.
 The section header layout and styling match `dsh-background-jobs-sidebar`, while clicking it cycles all,

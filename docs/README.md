@@ -19,10 +19,8 @@
 
 ## 「你在被做成表」彩蛋模式
 
-在独立插件详情页（`plugins.bundle.config`）或包含本插件且启用该行的聚合包详情页（`plugins.detail.section`）
-打开 **你在被做成表** 后，开关状态作为客户端偏好保存在 `localStorage` 中，
-并经由 `shell.overlay` 生效（聚合包详情页中通过与 `@deepseek-ai/dsh-client-ui-plugin-manager@0.2.2-rc.5`
-对齐的 flex `order` 规则将该设置置于 `[data-plugin-rows]` 之前）：
+在独立插件详情页（`plugins.bundle.config`）打开 **你在被做成表** 后，开关状态作为客户端偏好保存在 `localStorage` 中，
+并经由 `shell.overlay` 生效（聚合包自动提取成员的 `plugins.bundle.config` 注册）：
 
 - 客户端通过样式规则将插件卡片、详情页和拖放提示中的眼睛图标替换为手表，并把分区标题、提示和菜单文案切为「表会话」。
 - 浏览区仅为表会话分区（`WatchedArea`）挂载 `sidebar.session.row.trailing` 与 `sidebar.session.row.hover` 插槽，

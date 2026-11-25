@@ -12,47 +12,14 @@ declare const __WATCHED_STYLES__: string
 declare const __WATCHED_ICON__: string
 declare const __WATCHED_ICON_TRIMMED__: string
 
-// @deepseek-ai/dsh-client-ui-plugin-manager 0.2.2-rc.5, src/client/PluginManagerPage.tsx & PluginManagerPage.module.css:
-// .detailSections flex column and [data-slot="plugins.detail.section"] display:contents.
-const AGGREGATE_SECTION_CSS = `[data-plugin-detail] > div:has(> [data-slot="plugins.detail.section"] > [data-dsh-watched-sessions-settings]) > [data-detail-document] {
-  order: -2;
-}
-[data-plugin-detail] > div:has(> [data-slot="plugins.detail.section"] > [data-dsh-watched-sessions-settings]) > [data-plugin-config],
-[data-plugin-detail] [data-slot="plugins.detail.section"] > [data-dsh-watched-sessions-settings] {
-  order: -1;
-}
-`
-
 // @deepseek-ai/dsh-client-ui-plugin-manager 0.2.2-rc.5, lib/types/client/slot-contract.d.ts:
-// plugins.bundle.config, plugins.detail.section, PluginDetailProps, PluginPackageRef, PluginRowRef, PluginsSubject.
-export interface WatchDetailRowRef {
-  readonly rowId: string
-  readonly moduleName: string
-  readonly enabled: boolean
-}
-
-export interface WatchDetailPackageRef {
-  readonly name: string
-  readonly enabled: boolean
-  readonly rows: readonly WatchDetailRowRef[]
-}
-
-export type WatchDetailSubject =
-  | { readonly kind: 'bundle'; readonly pkg: WatchDetailPackageRef }
-  | { readonly kind: 'row'; readonly pkg: WatchDetailPackageRef; readonly row: WatchDetailRowRef }
-  | { readonly kind: 'item'; readonly id: string }
-
+// plugins.bundle.config.
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface SlotMap {
     'plugins.bundle.config': {
       kind: 'keyed'
       scope: 'root'
       owner: { readonly view: 'summary' | 'page' }
-    }
-    'plugins.detail.section': {
-      kind: 'list'
-      scope: 'root'
-      owner: { readonly subject: WatchDetailSubject }
     }
   }
 }
@@ -94,7 +61,7 @@ export function WatchModeSettings({ view, watchMode, t }: {
   const label = t('watchMode')
   return (
     <div data-dsh-watched-sessions-settings="">
-      <style>{`${__WATCHED_STYLES__}\n${AGGREGATE_SECTION_CSS}`}</style>
+      <style>{__WATCHED_STYLES__}</style>
       <div className={css.settingRow} data-dsh-watched-sessions-watch-mode-setting="">
         <span className={css.settingLabel} onClick={() => { watchMode.setEnabled(!enabled) }}>
           {label}
@@ -103,19 +70,6 @@ export function WatchModeSettings({ view, watchMode, t }: {
       </div>
     </div>
   )
-}
-
-export function AggregatedWatchModeSettings({ subject, bundleName, rowId, watchMode, t }: {
-  subject: WatchDetailSubject
-  bundleName: string
-  rowId: string
-  watchMode: WatchMode
-  t: PropsLocale<'dsh-watched-sessions'>['t'] | WatchedTranslate
-}) {
-  if (subject.kind !== 'bundle' || subject.pkg.name === bundleName || !subject.pkg.enabled) return null
-  const ownsWatched = subject.pkg.rows.some(row =>
-    row.rowId === rowId && row.moduleName === bundleName && row.enabled)
-  return ownsWatched ? <WatchModeSettings view="page" watchMode={watchMode} t={t} /> : null
 }
 
 export function WatchModeOverlay({ useWatchMode }: PropsHooks<{ watchMode: import('@deepseek-ai/dsh-client-ui-slots').HostObservable<boolean> }>) {

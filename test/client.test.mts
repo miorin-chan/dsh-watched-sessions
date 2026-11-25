@@ -27,7 +27,6 @@ assert.equal(registration.id, '@miorin/dsh-watched-sessions')
 const require = createRequire(import.meta.url)
 const plugin = registration.factory((name: string) => name === '@deepseek-ai/dsh-client-ui-primitives' ? {} : require(name))
 const {
-  AggregatedWatchModeSettings,
   buildWatchModeCss,
   canWatch,
   createRuntimeClient,
@@ -221,9 +220,7 @@ test('waits for the native browser and shares its view store and menu actions', 
     assert.equal(f.bySlot('sidebar.workspaces').length, 0)
     assert.equal(f.bySlot('plugins.bundle.config').length, 1)
     assert.equal(f.bySlot('plugins.bundle.config')[0].options.key, '@miorin/dsh-watched-sessions')
-    assert.equal(f.bySlot('plugins.detail.section').length, 1)
-    assert.equal(f.bySlot('plugins.detail.section')[0].options.id, 'dsh-watched-sessions')
-    assert.equal(f.bySlot('plugins.detail.section')[0].options.locale, 'dsh-watched-sessions')
+    assert.equal(f.bySlot('plugins.detail.section').length, 0)
     assert.equal(f.bySlot('shell.overlay').length, 1)
     assert.equal(f.eventListeners.get('connection/reset')?.size, 1)
     f.entries.push(f.native)
@@ -843,7 +840,7 @@ test('switches icons, titles, detail-page setting, and overlay CSS in watch mode
   assert.match(builtCss, /img\[src="a"\],\s*img\[src="b"\]/)
 })
 
-test('exposes watch mode settings on aggregate details and scopes runtime slots to watched rows', () => {
+test('exposes watch mode settings on own bundle config and scopes runtime slots to watched rows', () => {
   const SwitchStub = (props: Record<string, unknown>) => ({ type: 'switch-stub', props })
   const react = {
     ...require('react'),
@@ -868,31 +865,18 @@ test('exposes watch mode settings on aggregate details and scopes runtime slots 
 
   storeData.clear()
   const wm = uiPlugin.__test.createWatchMode(storage)
-  const bundleName = '@miorin/dsh-watched-sessions'
-  const rowId = 'dsh-watched-sessions'
-  const row = { rowId, moduleName: bundleName, enabled: true }
-  const aggregate = { name: '@miorin/dsh-atlas-list', enabled: true, rows: [row] }
-  const section = (subject: unknown) => expandNode(uiPlugin.__test.AggregatedWatchModeSettings({
-    subject, bundleName, rowId, watchMode: wm, t: (k: string) => k,
-  }), (type: unknown) => type === uiPlugin.__test.WatchModeSettings)
-
-  const shown = section({ kind: 'bundle', pkg: aggregate })
-  assert.equal(shown?.props?.['data-dsh-watched-sessions-settings'], '')
-  const shownStyle = findElement(shown, element => element.type === 'style')
-  const shownCss = String(shownStyle?.props?.children ?? '')
-  assert.match(shownCss, /\[data-detail-document\][^}]*order:\s*-2/)
-  assert.match(shownCss, /\[data-slot="plugins\.detail\.section"\]\s*>\s*\[data-dsh-watched-sessions-settings\][^}]*order:\s*-1/)
-  const sw = findElement(shown, element => element.type === SwitchStub)
+  const settings = expandNode(uiPlugin.__test.WatchModeSettings({
+    view: 'page', watchMode: wm, t: (k: string) => k,
+  }), () => false) as ElementNode
+  assert.equal(settings?.props?.['data-dsh-watched-sessions-settings'], '')
+  const sw = findElement(settings, element => element.type === SwitchStub)
   assert.ok(sw)
   assert.equal(sw.props?.checked, false)
   ;(sw.props?.onChange as (next: boolean) => void)(true)
   assert.equal(wm.getSnapshot(), true)
-
-  assert.equal(section({ kind: 'bundle', pkg: { ...aggregate, name: bundleName } }), null)
-  assert.equal(section({ kind: 'bundle', pkg: { ...aggregate, enabled: false } }), null)
-  assert.equal(section({ kind: 'bundle', pkg: { ...aggregate, rows: [] } }), null)
-  assert.equal(section({ kind: 'bundle', pkg: { ...aggregate, rows: [{ ...row, enabled: false }] } }), null)
-  assert.equal(section({ kind: 'row', pkg: aggregate, row }), null)
+  assert.equal(uiPlugin.__test.WatchModeSettings({
+    view: 'summary', watchMode: wm, t: (k: string) => k,
+  }), null)
 
   const runtime = uiPlugin.__test.createRuntimeClient()
   try {
