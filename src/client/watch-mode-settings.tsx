@@ -1,4 +1,4 @@
-import { Switch } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconClockOutlineMedium, Switch } from '@deepseek-ai/dsh-client-ui-primitives'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type { PropsHooks, PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import { useSyncExternalStore } from 'react'
@@ -60,13 +60,26 @@ export function WatchModeSettings({ view, watchMode, t }: {
   if (view !== 'page') return null
   const label = t('watchMode')
   return (
-    <div data-dsh-watched-sessions-settings="">
+    <div className={css.settingsPanel} data-dsh-watched-sessions-settings="">
       <style>{__WATCHED_STYLES__}</style>
-      <div className={css.settingRow} data-dsh-watched-sessions-watch-mode-setting="">
-        <span className={css.settingLabel} onClick={() => { watchMode.setEnabled(!enabled) }}>
-          {label}
-        </span>
-        <Switch checked={enabled} onChange={next => { watchMode.setEnabled(next) }} label={label} />
+      <div className={css.settingsHead}>
+        <h4 className={css.settingsHeading}>{t('settingsSection')}</h4>
+      </div>
+      <div className={css.settingsCard}>
+        <div className={css.settingRow} data-dsh-watched-sessions-watch-mode-setting="">
+          <span className={css.settingIcon} aria-hidden="true">
+            <IconClockOutlineMedium size={16} />
+          </span>
+          <div className={css.settingCopy}>
+            <span className={css.settingLabel} onClick={() => { watchMode.setEnabled(!enabled) }}>
+              {label}
+            </span>
+            <p className={css.settingDesc}>{t('watchModeHint')}</p>
+          </div>
+          <div className={css.settingControl}>
+            <Switch checked={enabled} onChange={next => { watchMode.setEnabled(next) }} label={label} />
+          </div>
+        </div>
       </div>
     </div>
   )

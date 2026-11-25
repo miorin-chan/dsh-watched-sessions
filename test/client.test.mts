@@ -855,6 +855,7 @@ test('exposes watch mode settings on own bundle config and scopes runtime slots 
     if (name === '@deepseek-ai/dsh-client-ui-primitives') {
       return {
         HoverCardGroup: ({ children }: { children?: unknown }) => children,
+        IconClockOutlineMedium: () => ({ type: 'svg' }),
         IconEditOutlineRegular: () => ({ type: 'svg' }),
         Tooltip: ({ children }: { children?: unknown }) => children,
         Switch: SwitchStub,
@@ -877,6 +878,11 @@ test('exposes watch mode settings on own bundle config and scopes runtime slots 
   assert.equal(uiPlugin.__test.WatchModeSettings({
     view: 'summary', watchMode: wm, t: (k: string) => k,
   }), null)
+  const settingsStyle = findElement(settings, element => element.type === 'style')
+  const settingsCss = String(settingsStyle?.props?.children ?? '')
+  assert.match(settingsCss, /\[data-dsh-aggregate-member\]/)
+  assert.match(settingsCss, /--dsw-alias-card-fill/)
+  assert.match(settingsCss, /@container \(max-width:\s*440px\)/)
 
   const runtime = uiPlugin.__test.createRuntimeClient()
   try {

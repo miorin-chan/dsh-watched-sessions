@@ -301,17 +301,108 @@
   font-variant-numeric: tabular-nums;
 }
 
+.settingsPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  container-type: inline-size;
+  color: var(--dsw-alias-label-primary);
+}
+
+[data-dsh-aggregate-member] .settingsHead {
+  display: none;
+}
+
+.settingsHead {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.settingsHeading {
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--dsw-alias-label-primary);
+}
+
+.settingsCard {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: var(--dsw-radius-lg, 16px);
+  background: var(--dsw-alias-card-fill);
+  overflow: hidden;
+}
+
 .settingRow {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
-  min-block-size: 36px;
-  color: var(--dsw-alias-label-primary);
-  font: inherit;
+  min-width: 0;
+  padding: 14px 16px;
+}
+
+.settingIcon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  box-sizing: border-box;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: var(--dsw-radius-sm, 8px);
+  background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-secondary);
+}
+
+.settingCopy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
 .settingLabel {
-  min-inline-size: 0;
+  font-size: 13.5px;
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--dsw-alias-label-primary);
   cursor: pointer;
+}
+
+.settingDesc {
+  margin: 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-tertiary);
+  overflow-wrap: anywhere;
+}
+
+.settingControl {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+}
+
+@container (max-width: 440px) {
+  .settingRow {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .settingCopy {
+    flex: 1 1 calc(100% - 44px);
+  }
+
+  .settingControl {
+    width: 100%;
+    box-sizing: border-box;
+    padding-inline-start: 44px;
+  }
 }
