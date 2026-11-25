@@ -16,52 +16,71 @@
 import { execFileSync } from 'node:child_process'
 import { readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
-import { dirname, resolve } from 'node:path'
+import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const require = createRequire(import.meta.url)
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const ROOT = resolve(fileURLToPath(import.meta.url), '../..')
 
-interface Versions {
+export interface Versions {
   dsh: string
   cordis: string
+}
+
+/** Resolve versions for `names` from `installDir`, falling back to `dsh` for unexported subpackages. */
+export function installedPackageVersions(
+  names: readonly string[],
+  installDir: string | undefined = process.env.DSH_INSTALL_DIR,
+): Record<string, string> {
+  if (!installDir) throw new Error('DSH_INSTALL_DIR is unset; run this inside a DSH shell.')
+  try {
+    const req = createRequire(resolve(installDir, 'package.json'))
+    const dshVersion = (req('./package.json') as { version: string }).version
+    const resolved: Record<string, string> = {}
+    for (const name of names) {
+      try {
+        resolved[name] = (req(`${name}/package.json`) as { version: string }).version
+      } catch {
+        resolved[name] = dshVersion
+      }
+    }
+    return resolved
+  } catch (error) {
+    const electron = process.env.DSH_NODE_EXECUTABLE
+    if (electron === undefined || electron === '') throw error
+    const script = `
+      const { createRequire } = require('node:module')
+      const { resolve } = require('node:path')
+      const install = ${JSON.stringify(installDir)}
+      const names = ${JSON.stringify([...names])}
+      const req = createRequire(resolve(install, 'package.json'))
+      const dsh = req('./package.json').version
+      const resolved = {}
+      for (const name of names) {
+        try {
+          resolved[name] = req(name + '/package.json').version
+        } catch {
+          resolved[name] = dsh
+        }
+      }
+      console.log(JSON.stringify(resolved))
+    `
+    const out = execFileSync(electron, ['-e', script], {
+      encoding: 'utf8',
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+    })
+    return JSON.parse(out.trim()) as Record<string, string>
+  }
 }
 
 /** The CLI version and the Cordis version the installation carries. */
 export function installedVersions(): Versions {
   const installDir = process.env.DSH_INSTALL_DIR
   if (!installDir) throw new Error('DSH_INSTALL_DIR is unset; run this inside a DSH shell.')
-  try {
-    const dsh = JSON.parse(require('node:fs').readFileSync(resolve(installDir, 'package.json'), 'utf8'))
-    const cordis = JSON.parse(require('node:fs').readFileSync(
-      resolve(dirname(require.resolve('@deepseek-ai/cordis/package.json', { paths: [installDir] })), 'package.json'),
-      'utf8',
-    ))
-    return { dsh: dsh.version, cordis: cordis.version }
-  } catch (error) {
-    const electron = process.env.DSH_NODE_EXECUTABLE
-    if (electron === undefined || electron === '') throw error
-    const script = `
-      const { createRequire } = require('node:module')
-      const { resolve, dirname } = require('node:path')
-      const install = ${JSON.stringify(installDir)}
-      const req = createRequire(resolve(install, 'package.json'))
-      const dsh = req('./package.json').version
-      const cordis = req('@deepseek-ai/cordis/package.json').version
-      console.log(JSON.stringify({ dsh, cordis }))
-    `
-    const out = execFileSync(electron, ['-e', script], {
-      encoding: 'utf8',
-      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
-    })
-    return JSON.parse(out.trim())
-  }
+  const resolved = installedPackageVersions(['@deepseek-ai/dsh', '@deepseek-ai/cordis'], installDir)
+  return { dsh: resolved['@deepseek-ai/dsh'], cordis: resolved['@deepseek-ai/cordis'] }
 }
 
 async function main() {
-  const { dsh: dshVersion, cordis: cordisVersion } = installedVersions()
-  const expected = (name: string) => (name === '@deepseek-ai/cordis' ? cordisVersion : dshVersion)
-
   const pkg = JSON.parse(await readFile(resolve(ROOT, 'package.json'), 'utf8')) as { devDependencies?: Record<string, string> }
   const devDependencies = pkg.devDependencies ?? {}
   const pinned = Object.keys(devDependencies).filter((name) => name.startsWith('@deepseek-ai/'))
@@ -70,9 +89,12 @@ async function main() {
     throw new Error('package.json has no @deepseek-ai devDependencies; add the packages this plugin types against.')
   }
 
+  const resolved = installedPackageVersions(pinned)
+  const { dsh: dshVersion, cordis: cordisVersion } = installedVersions()
+
   let mismatch = false
   for (const name of pinned) {
-    const want = expected(name)
+    const want = resolved[name]
     const have = devDependencies[name]
     if (have !== want) {
       mismatch = true
@@ -88,7 +110,7 @@ async function main() {
       console.log(`type packages match DSH ${dshVersion} / cordis ${cordisVersion}.`)
     }
   } else {
-    const installs = pinned.map((name) => `${name}@${expected(name)}`).join(' ')
+    const installs = pinned.map((name) => `${name}@${resolved[name]}`).join(' ')
     console.log(`pnpm add -D ${installs}`)
     if (mismatch) console.error(`\nDSH ${dshVersion} / cordis ${cordisVersion}; run the command above to repin.`)
   }
