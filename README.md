@@ -37,8 +37,8 @@ With **Session draft** enabled, idle sessions with unsent text show a pencil in 
 Other decorations and buttons contributed to native session row slots remain visible only
 in the native workspace browser.
 
-Enabling **You are being turned into a watch** on the plugin detail page —
-or on the detail page of an aggregate bundle that includes it — turns the eye icons into watches,
+Enabling **you're being watched** on the plugin detail page — or on the detail page
+of an aggregate bundle that includes it — turns the eye icons into watches,
 changes the section heading to **Watches**, and replaces the last-interaction time with total running duration
 on watched sessions only (leaving regular list sessions unchanged and keeping pending-interaction labels intact).
 
