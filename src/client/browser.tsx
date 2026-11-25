@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useSyncExternalStore } from 'react'
 import type { ContextMenuTarget } from '@deepseek-ai/dsh-client-ui-context-menu/client'
-import { IconArchiveOutlineRegular, IconPinFillRegular, IconPinOutlineRegular, IconUnarchiveOutlineRegular, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconArchiveOutlineRegular, IconEditOutlineRegular, IconPinFillRegular, IconPinOutlineRegular, IconUnarchiveOutlineRegular, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SessionRowOwnerProps } from '@deepseek-ai/dsh-client-ui-workspace/client'
 // @deepseek-ai/dsh-client-ui-workspace 0.2.2-rc.5, src/client/rows/Rows.module.css: iconButton, pinnedAction, time, hoverTime.
 import css from '@deepseek-ai/dsh-client-ui-workspace/src/client/rows/Rows.module.css'
@@ -83,35 +83,45 @@ function SessionHoverRuntime(props: SessionRuntimeHookProps) {
 /** The stock browser's child slot declarations remain with its registration. Reuse its structured actions here. */
 export function WatchedBrowser(props: BrowserProps) {
   const { runtime, ...browserProps } = props
-  const { runRowAction, t, labelWatched, useSessionAccess, useSessionStatus, useSessions, useWorkspaces, useWatchMode } = browserProps
+  const { runRowAction, t, labelWatched, useSessionAccess, useSessionStatus, useSessions, useWorkspaces, useWatchedDrafts, useWatchMode } = browserProps
   const watchModeEnabled = useWatchMode(enabled => enabled)
   const renderRowParts: WatchedBrowserProps['renderSlot'] = useCallback((name, owner) => {
-    if (name !== 'sidebar.workspaces.session.row.action') return null
-    if (!('sessionId' in owner) || typeof owner.sessionId !== 'string'
-      || !('displayTitle' in owner) || typeof owner.displayTitle !== 'string') return null
-    return <SessionActions sessionId={owner.sessionId as SessionRowOwnerProps['sessionId']}
-      displayTitle={owner.displayTitle} useWorkspaces={useWorkspaces}
-      useSessionAccess={useSessionAccess} t={t} runRowAction={runRowAction} />
-  }, [runRowAction, t, useSessionAccess, useWorkspaces])
-  const renderWatchedRowParts: WatchedBrowserProps['renderSlot'] = useCallback((name, owner) => {
-    if (name === 'sidebar.workspaces.session.row.action') return renderRowParts(name, owner)
-    if (!watchModeEnabled || !('sessionId' in owner) || typeof owner.sessionId !== 'string') return null
+    if (!('sessionId' in owner) || typeof owner.sessionId !== 'string') return null
     const sessionId = owner.sessionId as SessionId
-    if (name === 'sidebar.session.row.trailing') {
-      return <SessionRuntimeBadge sessionId={sessionId} runtime={runtime}
-        useSessions={useSessions} useSessionStatus={useSessionStatus} labelWatched={labelWatched} />
+    if (name === 'sidebar.session.row.leading') {
+      return <DraftMark sessionId={sessionId} useWatchedDrafts={useWatchedDrafts} labelWatched={labelWatched} />
     }
-    if (name === 'sidebar.session.row.hover') {
-      return <SessionHoverRuntime sessionId={sessionId} runtime={runtime}
-        useSessions={useSessions} useSessionStatus={useSessionStatus} labelWatched={labelWatched} />
+    if (name !== 'sidebar.workspaces.session.row.action'
+      || !('displayTitle' in owner) || typeof owner.displayTitle !== 'string') return null
+    return <SessionActions sessionId={sessionId} displayTitle={owner.displayTitle}
+      useWorkspaces={useWorkspaces} useSessionAccess={useSessionAccess} t={t} runRowAction={runRowAction} />
+  }, [labelWatched, runRowAction, t, useSessionAccess, useWatchedDrafts, useWorkspaces])
+  const renderWatchedRowParts: WatchedBrowserProps['renderSlot'] = useCallback((name, owner) => {
+    if (!watchModeEnabled || (name !== 'sidebar.session.row.trailing' && name !== 'sidebar.session.row.hover')) {
+      return renderRowParts(name, owner)
     }
-    return null
+    if (!('sessionId' in owner) || typeof owner.sessionId !== 'string') return null
+    const RuntimeMark = name === 'sidebar.session.row.trailing' ? SessionRuntimeBadge : SessionHoverRuntime
+    return <RuntimeMark sessionId={owner.sessionId as SessionId} runtime={runtime}
+      useSessions={useSessions} useSessionStatus={useSessionStatus} labelWatched={labelWatched} />
   }, [labelWatched, renderRowParts, runtime, useSessionStatus, useSessions, watchModeEnabled])
   return (
     <>
       <style>{__WATCHED_STYLES__}</style>
       <WorkspaceBrowser {...browserProps} renderSlot={renderRowParts} renderWatchedSlot={renderWatchedRowParts} />
     </>
+  )
+}
+
+function DraftMark({ sessionId, useWatchedDrafts, labelWatched }: { sessionId: SessionId } & Pick<
+  BrowserProps, 'useWatchedDrafts' | 'labelWatched'
+>) {
+  if (!useWatchedDrafts(ids => ids.has(sessionId))) return null
+  const label = labelWatched('unsentDraft')
+  return (
+    <span className={watchedCss.draftMark} data-dsh-session-draft="" role="img" aria-label={label} title={label}>
+      <IconEditOutlineRegular size={14} />
+    </span>
   )
 }
 

@@ -856,7 +856,12 @@ test('exposes watch mode settings on aggregate details and scopes runtime slots 
   const uiPlugin = registration.factory((name: string) => {
     if (name === 'react') return react
     if (name === '@deepseek-ai/dsh-client-ui-primitives') {
-      return { HoverCardGroup: ({ children }: { children?: unknown }) => children, Tooltip: ({ children }: { children?: unknown }) => children, Switch: SwitchStub }
+      return {
+        HoverCardGroup: ({ children }: { children?: unknown }) => children,
+        IconEditOutlineRegular: () => ({ type: 'svg' }),
+        Tooltip: ({ children }: { children?: unknown }) => children,
+        Switch: SwitchStub,
+      }
     }
     return require(name)
   })
@@ -892,7 +897,10 @@ test('exposes watch mode settings on aggregate details and scopes runtime slots 
   const runtime = uiPlugin.__test.createRuntimeClient()
   try {
     let watchModeEnabled = true
+    const draftIds = new Set(['alpha'])
+    const useWatchedDrafts = (select: (ids: ReadonlySet<string>) => boolean) => select(draftIds)
     const browserTree = uiPlugin.__test.WatchedBrowser({
+      useWatchedDrafts,
       runRowAction: () => {},
       runtime,
       t: (k: string) => k,
@@ -908,7 +916,17 @@ test('exposes watch mode settings on aggregate details and scopes runtime slots 
     const renderSlot = browserEl.props.renderSlot as (name: string, owner: Record<string, unknown>) => ElementNode | null
     const renderWatchedSlot = browserEl.props.renderWatchedSlot as (name: string, owner: Record<string, unknown>) => ElementNode | null
 
-    // Regular list rows only get row actions; never runtime trailing/hover slots even in watch mode.
+    // Both lists show a draft only on the row that owns it. Clearing it removes the marker.
+    for (const render of [renderSlot, renderWatchedSlot]) {
+      const draft = (sessionId: string) => expandNode(render('sidebar.session.row.leading', { sessionId }), () => true)
+      assert.equal(draft('alpha')?.props?.['aria-label'], 'unsentDraft')
+      assert.equal(draft('beta'), null)
+      draftIds.delete('alpha')
+      assert.equal(draft('alpha'), null)
+      draftIds.add('alpha')
+    }
+
+    // Regular list rows never get runtime trailing/hover slots, even in watch mode.
     assert.ok(renderSlot('sidebar.workspaces.session.row.action', { sessionId: 'alpha', displayTitle: 'Alpha' }))
     assert.equal(renderSlot('sidebar.session.row.trailing', { sessionId: 'alpha' }), null)
     assert.equal(renderSlot('sidebar.session.row.hover', { sessionId: 'alpha' }), null)
@@ -923,6 +941,7 @@ test('exposes watch mode settings on aggregate details and scopes runtime slots 
     // Disabling watch mode turns off watched row runtime slots too.
     watchModeEnabled = false
     const browserOff = uiPlugin.__test.WatchedBrowser({
+      useWatchedDrafts,
       runRowAction: () => {},
       runtime,
       t: (k: string) => k,
@@ -935,6 +954,7 @@ test('exposes watch mode settings on aggregate details and scopes runtime slots 
     })
     const offEl = findElement(browserOff, element => element.props?.renderWatchedSlot !== undefined)
     const offWatchedSlot = offEl?.props?.renderWatchedSlot as (name: string, owner: Record<string, unknown>) => ElementNode | null
+    assert.ok(offWatchedSlot('sidebar.session.row.leading', { sessionId: 'alpha' }))
     assert.equal(offWatchedSlot('sidebar.session.row.trailing', { sessionId: 'alpha' }), null)
     assert.equal(offWatchedSlot('sidebar.session.row.hover', { sessionId: 'alpha' }), null)
   } finally {

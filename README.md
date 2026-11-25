@@ -33,8 +33,9 @@ to its regular pin status and the workspace's usual sort order.
 This client saves the watched sessions and their order.
 Archiving a session stops watching it.
 
-The plugin uses the single workspace browser slot.
-While active, it hides decorations and buttons that other plugins add through the native session row slots.
+With **Session draft** enabled, idle sessions with unsent text show a pencil in both the regular and watched lists.
+Other decorations and buttons contributed to native session row slots remain visible only
+in the native workspace browser.
 
 Enabling **You are being turned into a watch** on the plugin detail page —
 or on the detail page of an aggregate bundle that includes it — turns the eye icons into watches,
