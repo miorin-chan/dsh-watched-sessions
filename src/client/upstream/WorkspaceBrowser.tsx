@@ -47,7 +47,7 @@ import css from '@deepseek-ai/dsh-client-ui-workspace/src/client/rows/WorkspaceB
 import type { DraftSource } from '../drafts'
 import { useWatchDrag, type WatchDrag } from '../drag'
 import type { WatchedTranslate } from '../labels'
-import { canWatch, type Watched } from '../watched'
+import { canWatch, visibleWatchedIds, type Watched } from '../watched'
 import { needsAttention } from '../attention'
 import { returnDropHandlers, WatchedArea, WatchedReturnTarget, watchedReturnClass } from '../watched-area'
 import watchedCss from '../watched.module.css'
@@ -1142,7 +1142,7 @@ export function WorkspaceBrowser({
   const browserRef = useRef<HTMLDivElement | null>(null)
   const previousMenuMove = useRef(menuMove)
   const watchedIds = useMemo(() => watchEnabled
-    ? savedWatched.filter(id => canWatch(list, archivedSessionIds, id)) : [],
+    ? visibleWatchedIds(list, archivedSessionIds, savedWatched) : [],
   [watchEnabled, savedWatched, list, archivedSessionIds])
   const excluded = useMemo(() => new Set(watchedIds), [watchedIds])
   const watchedStatuses = useSessionStatus(status => status)

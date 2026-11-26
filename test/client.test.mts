@@ -212,6 +212,43 @@ test('ignores missing, blank, subagent, and archived sessions when offering to w
   }
 })
 
+test('exposes an optional read-only summary with eligible IDs and live watch mode', () => {
+  storeData.clear()
+  setSaved('["beta","alpha","missing","blank","child"]')
+  const f = fixture()
+  const sessions = f.ctx.sessions.list
+  sessions.replace({ byId: {
+    ...sessions.getSnapshot().byId,
+    blank: session('blank', { blank: true }),
+    child: session('child', { origin: 'subagent' }),
+  } })
+  plugin.apply(f.ctx)
+  const overlay = f.bySlot('shell.overlay')[0]
+  const { watchedSummary, watchMode } = overlay.inject().hooks
+  assert.equal(watchedSummary, overlay.inject().hooks.watchedSummary)
+  const initial = watchedSummary.getSnapshot()
+  assert.deepEqual(initial, { ids: ['beta', 'alpha'], watchMode: false })
+  const changes = []
+  const stop = watchedSummary.subscribe(() => changes.push(watchedSummary.getSnapshot()))
+  try {
+    f.ctx.slots.entriesOfSlot()[0].inject().hooks.watched.cycleView()
+    assert.equal(watchedSummary.getSnapshot(), initial)
+    watchMode.setEnabled(true)
+    assert.deepEqual(changes.at(-1), { ids: ['beta', 'alpha'], watchMode: true })
+    f.workspace.replace({ archivedSessionIds: ['alpha'] })
+    assert.deepEqual(changes.at(-1), { ids: ['beta'], watchMode: true })
+    storeData.delete(WATCH_MODE_STORAGE_KEY)
+    listeners.get('storage')({ key: WATCH_MODE_STORAGE_KEY })
+    assert.deepEqual(changes.at(-1), { ids: ['beta'], watchMode: false })
+    sessions.replace({ byId: {} })
+    assert.deepEqual(changes.at(-1), { ids: [], watchMode: false })
+  } finally {
+    stop()
+    assert.equal(sessions.listeners.size, 0)
+    f.stop()
+  }
+})
+
 test('waits for the native browser and shares its view store and menu actions', () => {
   storeData.clear()
   const f = fixture({ startEmpty: true })

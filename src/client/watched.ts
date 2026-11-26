@@ -27,6 +27,10 @@ export function canWatch(list: SessionListState, archived: readonly SessionId[],
   return session?.id === id && !session.blank && session.origin !== 'subagent' && !archived.includes(id)
 }
 
+export function visibleWatchedIds(list: SessionListState, archived: readonly SessionId[], ids: readonly SessionId[]) {
+  return ids.filter(id => canWatch(list, archived, id))
+}
+
 /** The destination is expressed in terms of a visible row, independently of hidden sessions. */
 export function moveWatched(
   ids: readonly SessionId[], id: SessionId, landing?: WatchLanding,

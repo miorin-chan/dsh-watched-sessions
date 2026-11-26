@@ -23,6 +23,7 @@ import { buildWatchModeCss, WatchModeOverlay, WatchModeSettings } from './watch-
 import { createWatchMode, WATCH_MODE_STORAGE_KEY, type WatchMode } from './watch-mode'
 import { canWatch, createWatched, STORAGE_KEY, type Watched } from './watched'
 import { WatchedArea, WatchedReturnTarget } from './watched-area'
+import { createWatchedSummary } from './watched-summary'
 
 const BUNDLE = '@miorin/dsh-watched-sessions'
 const BROWSER_SLOT = 'sidebar.workspaces'
@@ -146,6 +147,7 @@ export function apply(ctx: Context): void {
   const storage = readableStorage()
   const watched = createWatched(storage)
   const watchMode = createWatchMode(storage)
+  const watchedSummary = createWatchedSummary(watched, watchMode, ctx.sessions.list, ctx.workspaces.list)
   const drafts = connectDrafts(ctx)
   const runtime = createRuntimeClient()
   ctx.effect(() => ctx.locale.register(NS, LABELS), `${NS}: locale`)
@@ -172,7 +174,7 @@ export function apply(ctx: Context): void {
       createElement(WatchModeSettings, { view, watchMode, t }),
   ))
   ctx.slots.inject(OVERLAY_SLOT, () => ctx.slots.register({
-    name: OVERLAY_SLOT, id: `${NS}.watch-mode`, inject: () => ({ hooks: { watchMode } }),
+    name: OVERLAY_SLOT, id: `${NS}.watch-mode`, inject: () => ({ hooks: { watchMode, watchedSummary } }),
   }, WatchModeOverlay))
   ctx.slots.inject(BROWSER_SLOT, () => mountBrowser(ctx, watched, watchMode, drafts, runtime))
 }
