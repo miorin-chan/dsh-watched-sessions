@@ -75,8 +75,8 @@ importers:
         specifier: 0.2.2-rc.5
         version: 0.2.2-rc.5(@deepseek-ai/cordis@4.1.0)
       '@miorin/dsh-plugin-knobs-ui':
-        specifier: link:../../packages/dsh-plugin-knobs-ui
-        version: link:../../packages/dsh-plugin-knobs-ui
+        specifier: 0.1.0
+        version: 0.1.0(react@18.3.1)
       '@types/node':
         specifier: 22.20.5
         version: 22.20.5
@@ -880,6 +880,12 @@ packages:
   '@js-temporal/polyfill@0.5.1':
     resolution: {integrity: sha512-hloP58zRVCRSpgDxmqCWJNlizAlUgJFqG2ypq79DCvyv9tHjRYMDOcPFjzfl/A1/YxDvRCZz8wvZvmapQnKwFQ==}
     engines: {node: '>=12'}
+
+  '@miorin/dsh-plugin-knobs-ui@0.1.0':
+    resolution: {integrity: sha512-vIPLNMo0011a8c0ULRcK2x5s+mU8oVyKmIekKh1qu7r+757jZOKQkjDesJRwZWI+4I9W96IhYfxy86XnOz4prw==}
+    engines: {node: ^22.18.0 || >=24.11.0}
+    peerDependencies:
+      react: ^18.3.0
 
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
@@ -1805,6 +1811,10 @@ snapshots:
   '@js-temporal/polyfill@0.5.1':
     dependencies:
       jsbi: 4.3.2
+
+  '@miorin/dsh-plugin-knobs-ui@0.1.0(react@18.3.1)':
+    dependencies:
+      react: 18.3.1
 
   '@standard-schema/spec@1.1.0': {}
 

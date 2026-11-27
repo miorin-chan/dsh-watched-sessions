@@ -85,7 +85,7 @@
     "@deepseek-ai/dsh-session-query": "0.2.2-rc.5",
     "@deepseek-ai/dsh-util-values": "0.2.2-rc.5",
     "@deepseek-ai/dsh-util-workspace-path": "0.2.2-rc.5",
-    "@miorin/dsh-plugin-knobs-ui": "link:../../packages/dsh-plugin-knobs-ui",
+    "@miorin/dsh-plugin-knobs-ui": "0.1.0",
     "@types/node": "22.20.5",
     "@types/react": "18.3.31",
     "clsx": "2.1.1",

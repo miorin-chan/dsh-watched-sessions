@@ -1,3 +1,6 @@
 # esbuild uses its optional platform binary.
 allowBuilds:
   'esbuild@0.28.2': false
+
+minimumReleaseAgeExclude:
+  - '@miorin/dsh-plugin-knobs-ui@0.1.0'
