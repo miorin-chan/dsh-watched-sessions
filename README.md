@@ -5,6 +5,16 @@
 Keep chosen sessions at the top of the DeepSeek Harness session sidebar, and fold them away
 or show only those needing attention.
 
+## Screenshots
+
+Choose **Watch** from a session menu to add it to the **Watched** section.
+The screenshots show the Chinese interface.
+
+| | Light | Dark |
+| --- | --- | --- |
+| Watched section | ![Watched section showing two sessions and their count (light theme)](docs/assets/screenshots/main-light.png) | ![Watched section showing two sessions and their count (dark theme)](docs/assets/screenshots/main-dark.png) |
+| Session menu | ![Session menu with the Watch action (light theme)](docs/assets/screenshots/entry-light.png) | ![Session menu with the Watch action (dark theme)](docs/assets/screenshots/entry-dark.png) |
+
 ## Install
 
 **DeepSeek Harness 0.2.2-rc.5** is required on Desktop and Web.

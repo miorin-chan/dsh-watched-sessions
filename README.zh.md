@@ -4,6 +4,15 @@
 
 把常用会话常驻在 DeepSeek Harness 会话侧栏顶部，可以收起，也可以只看需关注的。
 
+## 界面截图
+
+从会话菜单选择「设为常驻」，即可将该会话加入侧栏顶部的「常驻会话」分区。
+
+| | 浅色 | 深色 |
+| --- | --- | --- |
+| 常驻会话分区 | ![常驻会话分区中的两条会话与计数（浅色主题）](docs/assets/screenshots/main-light.png) | ![常驻会话分区中的两条会话与计数（深色主题）](docs/assets/screenshots/main-dark.png) |
+| 会话菜单 | ![会话菜单中的「设为常驻」操作（浅色主题）](docs/assets/screenshots/entry-light.png) | ![会话菜单中的「设为常驻」操作（深色主题）](docs/assets/screenshots/entry-dark.png) |
+
 ## 安装
 
 仅适用于 **DeepSeek Harness Desktop 或 Web 0.2.2-rc.5**。
