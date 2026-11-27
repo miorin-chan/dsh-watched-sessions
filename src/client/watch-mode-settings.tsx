@@ -1,6 +1,7 @@
 import { IconClockOutlineMedium, Switch } from '@deepseek-ai/dsh-client-ui-primitives'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type { PropsHooks, PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
+import { KnobRow, KnobsPanel } from '@miorin/dsh-plugin-knobs-ui'
 import { useSyncExternalStore } from 'react'
 // @deepseek-ai/dsh-client-ui-workspace 0.2.2-rc.5, src/client/rows/Rows.module.css: rowResting, timestamp, time, hoverContent, hoverTime.
 import rowsCss from '@deepseek-ai/dsh-client-ui-workspace/src/client/rows/Rows.module.css'
@@ -8,7 +9,6 @@ import type { WatchedTranslate } from './labels'
 import { WATCH_PLUGIN_ICON_DATA_URI, type WatchMode } from './watch-mode'
 import css from './watched.module.css'
 
-declare const __WATCHED_STYLES__: string
 declare const __WATCHED_ICON__: string
 declare const __WATCHED_ICON_TRIMMED__: string
 
@@ -60,28 +60,16 @@ export function WatchModeSettings({ view, watchMode, t }: {
   if (view !== 'page') return null
   const label = t('watchMode')
   return (
-    <div className={css.settingsPanel} data-dsh-watched-sessions-settings="">
-      <style>{__WATCHED_STYLES__}</style>
-      <div className={css.settingsHead}>
-        <h4 className={css.settingsHeading}>{t('settingsSection')}</h4>
-      </div>
-      <div className={css.settingsList}>
-        <div className={css.settingRow} data-dsh-watched-sessions-watch-mode-setting="">
-          <span className={css.settingIcon} aria-hidden="true">
-            <IconClockOutlineMedium size={16} />
-          </span>
-          <div className={css.settingCopy}>
-            <span className={css.settingLabel} onClick={() => { watchMode.setEnabled(!enabled) }}>
-              {label}
-            </span>
-            <p className={css.settingDesc}>{t('watchModeHint')}</p>
-          </div>
-          <div className={css.settingControl}>
-            <Switch checked={enabled} onChange={next => { watchMode.setEnabled(next) }} label={label} />
-          </div>
-        </div>
-      </div>
-    </div>
+    <KnobsPanel scope="@miorin/dsh-watched-sessions" heading={t('settingsSection')} data-dsh-watched-sessions-settings="">
+      <KnobRow
+        data-dsh-watched-sessions-watch-mode-setting=""
+        icon={<IconClockOutlineMedium size={16} />}
+        title={label}
+        onTitleClick={() => { watchMode.setEnabled(!enabled) }}
+        description={t('watchModeHint')}
+        control={<Switch checked={enabled} onChange={next => { watchMode.setEnabled(next) }} label={label} />}
+      />
+    </KnobsPanel>
   )
 }
 

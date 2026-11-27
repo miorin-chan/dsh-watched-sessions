@@ -1,5 +1,9 @@
 # 更新记录
 
+## 未发布
+
+- 详情页设置改由 `@miorin/dsh-plugin-knobs-ui` 绘制，布局与交互保持不变。
+
 ## 0.1.3 · 2026-11-23
 
 - 改名为「常驻会话」，包名改为 `@miorin/dsh-watched-sessions`，图标换成眼睛。

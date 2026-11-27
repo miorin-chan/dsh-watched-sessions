@@ -424,6 +424,9 @@ function expandNode(node: unknown, shouldExpand: (type: unknown) => boolean): un
   }
 }
 
+/** Expand the shared knob layout components so tests see the native controls they place. */
+const isKnobComponent = (type: unknown) => typeof type === 'function' && ['KnobsPanel', 'KnobRow'].includes(type.name)
+
 function collectElements(node: unknown, match: (element: ElementNode) => boolean, found: ElementNode[] = []): ElementNode[] {
   if (Array.isArray(node)) {
     for (const child of node) collectElements(child, match, found)
@@ -857,7 +860,7 @@ test('switches icons, titles, detail-page setting, and overlay CSS in watch mode
   storeData.clear()
   const wm = uiPlugin.__test.createWatchMode(storage)
   assert.equal(uiPlugin.__test.WatchModeSettings({ view: 'summary', watchMode: wm, t: (k: string) => k }), null)
-  const pageView = uiPlugin.__test.WatchModeSettings({ view: 'page', watchMode: wm, t: (k: string) => k })
+  const pageView = expandNode(uiPlugin.__test.WatchModeSettings({ view: 'page', watchMode: wm, t: (k: string) => k }), isKnobComponent)
   const sw = findElement(pageView, element => element.type === SwitchStub)
   assert.equal(sw?.props?.checked, false)
   assert.equal(sw?.props?.label, 'watchMode')
@@ -905,7 +908,7 @@ test('exposes watch mode settings on own bundle config and scopes runtime slots 
   const wm = uiPlugin.__test.createWatchMode(storage)
   const settings = expandNode(uiPlugin.__test.WatchModeSettings({
     view: 'page', watchMode: wm, t: (k: string) => k,
-  }), () => false) as ElementNode
+  }), isKnobComponent) as ElementNode
   assert.equal(settings?.props?.['data-dsh-watched-sessions-settings'], '')
   const sw = findElement(settings, element => element.type === SwitchStub)
   assert.ok(sw)
