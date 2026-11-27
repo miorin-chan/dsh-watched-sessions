@@ -2,54 +2,25 @@
 
 [简体中文](README.zh.md)
 
-Keep chosen sessions at the top of the DeepSeek Harness session sidebar, and fold them away
-or show only those needing attention.
+Keep chosen sessions in a **Watched** section at the top of the DeepSeek Harness sidebar.
+Drag a session to the top drop row—or use its `…` / right-click menu—to watch, reorder,
+or stop watching it (archiving a session removes it from Watched; watched items and order are stored on this client).
+
+Click the **Watched** heading to cycle **All → Collapsed → Needs attention**; enabling **you're being watched**
+on the plugin detail page switches the icons to watches, renames the heading to **Watches**,
+and shows live running duration.
+
+Requires DeepSeek Harness `0.2.2-rc.5` on Desktop or Web.
+Enable **Watched sessions** in **List Modular Improvement Plan**, or run `pnpm install` in this directory
+and select it in **Plugins → Add plugin**.
 
 ## Screenshots
 
-Choose **Watch** from a session menu to add it to the **Watched** section.
 The screenshots show the Chinese interface.
 
 | | Light | Dark |
 | --- | --- | --- |
 | Watched section | ![Watched section showing two sessions and their count (light theme)](docs/assets/screenshots/main-light.png) | ![Watched section showing two sessions and their count (dark theme)](docs/assets/screenshots/main-dark.png) |
 | Session menu | ![Session menu with the Watch action (light theme)](docs/assets/screenshots/entry-light.png) | ![Session menu with the Watch action (dark theme)](docs/assets/screenshots/entry-dark.png) |
-
-## Install
-
-**DeepSeek Harness 0.2.2-rc.5** is required on Desktop and Web.
-
-1. Run `npm ci` in this directory to install dependencies and build the plugin.
-2. In **Plugins** > **Add plugin**, select this directory.
-   The plugin appears as **Watched sessions**.
-
-## Use
-
-1. Open the session sidebar and drag a session to the drop row that appears at the top to watch it.
-2. Drag sessions within the **Watched** section to reorder them.
-3. Drag a session back into the regular list to stop watching it.
-
-Use the session's **…** menu or right-click menu to watch it, stop watching it, or move it up or down.
-
-Clicking the **Watched** heading cycles the section through three views, following the session list toggle:
-all watched sessions, collapsed, and Needs attention.
-Needs attention keeps the current, pinned, and drafted sessions, and those that are running,
-waiting for you, or finished unread.
-The count right after the title always shows how many sessions are watched.
-Watching a new session reopens the full section, and reloading the page starts from the full section.
-
-When you stop watching a session, it reappears in its original workspace according
-to its regular pin status and the workspace's usual sort order.
-This client saves the watched sessions and their order.
-Archiving a session stops watching it.
-
-With **Session draft** enabled, idle sessions with unsent text show a pencil in both the regular and watched lists.
-Other decorations and buttons contributed to native session row slots remain visible only
-in the native workspace browser.
-
-Enabling **you're being watched** on the plugin detail page — or on the detail page
-of an aggregate bundle that includes it — turns the eye icons into watches,
-changes the section heading to **Watches**, and replaces the last-interaction time with total running duration
-on watched sessions only (leaving regular list sessions unchanged and keeping pending-interaction labels intact).
 
 [Project documentation](docs/README.md)

@@ -6,4 +6,4 @@
 
 常驻会话及其顺序保存在当前客户端。
 
-[查看使用指南](https://github.com/miorin-chan/dsh-watched-sessions/blob/main/README.zh.md#使用)
+[查看使用指南](https://github.com/miorin-chan/dsh-watched-sessions/blob/main/README.zh.md)
