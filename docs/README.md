@@ -1,5 +1,6 @@
 # 项目文档
 
+- [产品设计](../DESIGN.md)：问题定位、目标体验、边界与成功标准。
 - [安装与使用（简体中文）](../README.zh.md) · [Installation and usage (English)](../README.md)
 - [插件详情（简体中文）](DETAIL.zh.md) · [Plugin details (English)](DETAIL.md)
 

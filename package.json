@@ -33,7 +33,8 @@
     "docs/assets/screenshots/main-dark.png",
     "docs/assets/screenshots/entry-light.png",
     "docs/assets/screenshots/entry-dark.png",
-    "README.zh.md"
+    "README.zh.md",
+    "DESIGN.md"
   ],
   "engines": {
     "dsh": ">=0.2.2-rc.5"
