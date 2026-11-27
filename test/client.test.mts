@@ -29,11 +29,14 @@ const plugin = registration.factory((name: string) => name === '@deepseek-ai/dsh
 const {
   buildWatchModeCss,
   canWatch,
+  createOrdinaryListScope,
   createRuntimeClient,
   createWatchMode,
   createWatched,
+  excludeWatchedGroups,
   formatDuration,
   needsAttention,
+  ordinaryCurrent,
   WATCH_MODE_STORAGE_KEY,
   WatchedArea,
   WatchedBrowser,
@@ -990,4 +993,91 @@ test('exposes watch mode settings on own bundle config and scopes runtime slots 
   } finally {
     runtime.dispose()
   }
+})
+
+test('publishes deduplicated ordinary list scope, resets on teardown, and clears watched current from ordinary groups', () => {
+  const scope = createOrdinaryListScope()
+  assert.equal(scope.getSnapshot(), undefined)
+  let notifications = 0
+  const stopScope = scope.subscribe(() => { notifications += 1 })
+  const first = { excludedIds: new Set(['alpha', 'beta']), archiveFilter: 'default' as const }
+  scope.publish(first)
+  assert.equal(scope.getSnapshot(), first)
+  assert.equal(notifications, 1)
+
+  // Reordered equal Set with identical archiveFilter preserves identity and skips notification.
+  scope.publish({ excludedIds: new Set(['beta', 'alpha']), archiveFilter: 'default' })
+  assert.equal(scope.getSnapshot(), first)
+  assert.equal(notifications, 1)
+
+  scope.publish({ excludedIds: new Set(['beta', 'alpha']), archiveFilter: 'only' })
+  assert.equal(notifications, 2)
+  assert.equal(scope.getSnapshot()?.archiveFilter, 'only')
+
+  scope.publish(undefined)
+  assert.equal(scope.getSnapshot(), undefined)
+  assert.equal(notifications, 3)
+  stopScope()
+  scope.publish(first)
+  assert.equal(notifications, 3)
+
+  // mountBrowser exposes ordinaryListScope on the replacement slot and clears it on unload.
+  storeData.clear()
+  const f = fixture()
+  plugin.apply(f.ctx)
+  const injectedScope = f.ctx.slots.entriesOfSlot()[0].inject().ordinaryListScope
+  assert.equal(typeof injectedScope?.getSnapshot, 'function')
+  assert.equal(typeof injectedScope?.subscribe, 'function')
+  injectedScope.publish(first)
+  assert.equal(injectedScope.getSnapshot(), first)
+  f.stop()
+  assert.equal(injectedScope.getSnapshot(), undefined)
+
+  // ordinaryCurrent and excludeWatchedGroups drop watched current/pinned/ungrouped rows from the ordinary tree.
+  const excluded = new Set(['watched-pin', 'loose-watched'])
+  assert.equal(ordinaryCurrent('watched-pin', excluded, false), undefined)
+  assert.equal(ordinaryCurrent('ordinary', excluded, false), 'ordinary')
+  assert.equal(ordinaryCurrent('ordinary', excluded, true), undefined)
+
+  const workspaces = [
+    { workspaceId: 'ws-a', path: '/a', title: 'A', createdAt: '2026-01-01T00:00:00Z', sessionIds: ['watched-pin', 'ordinary'] },
+  ]
+  const node = (id: string, pinned = false) => ({
+    id, title: id, blank: false, running: false, runningSubagentCount: 0,
+    completed: false, pinned, archived: false, updatedAt: 1,
+  })
+  const nativeGroups = [
+    {
+      key: 'ws-a', workspaceId: 'ws-a', cwd: '/a', createdAt: 0, label: 'A',
+      sessionCount: 2, expanded: true, containsCurrent: true,
+      sessions: [node('watched-pin', true), node('ordinary')],
+    },
+    {
+      key: '', workspaceId: undefined, cwd: undefined, createdAt: undefined, label: '',
+      sessionCount: 1, expanded: true, containsCurrent: false,
+      sessions: [node('loose-watched')],
+    },
+  ]
+
+  const whenWatchedCurrent = excludeWatchedGroups(nativeGroups, workspaces, excluded, 'watched-pin')
+  assert.equal(whenWatchedCurrent.length, 1)
+  assert.equal(whenWatchedCurrent[0].containsCurrent, false)
+  assert.equal(whenWatchedCurrent[0].sessionCount, 1)
+  assert.deepEqual(whenWatchedCurrent[0].sessions.map(s => s.id), ['ordinary'])
+
+  const whenOrdinaryCurrent = excludeWatchedGroups(nativeGroups, workspaces, excluded, 'ordinary')
+  assert.equal(whenOrdinaryCurrent.length, 1)
+  assert.equal(whenOrdinaryCurrent[0].containsCurrent, true)
+  assert.equal(whenOrdinaryCurrent[0].sessionCount, 1)
+  assert.deepEqual(whenOrdinaryCurrent[0].sessions.map(s => s.id), ['ordinary'])
+
+  // WatchedArea's own half-expanded attention criterion still retains the watched current or pinned session.
+  const attentionCtx = {
+    list: { byId: { 'watched-pin': session('watched-pin'), ordinary: session('ordinary') }, projectionsBySession: {} },
+    statuses: new Map(),
+    pinned: new Set(['watched-pin']),
+    current: 'ordinary',
+  }
+  assert.equal(needsAttention('watched-pin', attentionCtx), true)
+  assert.equal(needsAttention('watched-pin', { ...attentionCtx, pinned: new Set(), current: 'watched-pin' }), true)
 })

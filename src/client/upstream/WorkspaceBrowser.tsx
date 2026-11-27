@@ -18,7 +18,7 @@
  * are slot entries with their own behavior, so this component threads no
  * action callbacks and hosts no action surface.
  */
-import { type CSSProperties, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { type CSSProperties, type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import { WorkspaceDialogs } from '@deepseek-ai/dsh-client-ui-workspace/src/client/rows/WorkspaceDialogs.tsx'
 import {
@@ -47,6 +47,7 @@ import css from '@deepseek-ai/dsh-client-ui-workspace/src/client/rows/WorkspaceB
 import type { DraftSource } from '../drafts'
 import { useWatchDrag, type WatchDrag } from '../drag'
 import type { WatchedTranslate } from '../labels'
+import { excludeWatchedGroups, ordinaryCurrent, type OrdinaryListScopeSource } from '../ordinary-list-scope'
 import { canWatch, visibleWatchedIds, type Watched } from '../watched'
 import { needsAttention } from '../attention'
 import { returnDropHandlers, WatchedArea, WatchedReturnTarget, watchedReturnClass } from '../watched-area'
@@ -57,6 +58,7 @@ const FLAT_SESSION_ORDER_KEY = '__flat_session_order__'
 
 export type WatchedBrowserProps = WorkspaceBrowserProps & {
   watched: Watched
+  ordinaryListScope: OrdinaryListScopeSource
   useWatched: import('@deepseek-ai/dsh-client-ui-slots').SnapshotSelectorHook<ReturnType<Watched['getSnapshot']>>
   useWatchedDrafts: import('@deepseek-ai/dsh-client-ui-slots').SnapshotSelectorHook<ReturnType<DraftSource['getSnapshot']>>
   useWatchMode: import('@deepseek-ai/dsh-client-ui-slots').SnapshotSelectorHook<boolean>
@@ -348,9 +350,8 @@ function SessionTree({
 }: SessionTreeProps) {
   const panelActive = usePanelInfo(info => info.activePanelId !== null)
   const statuses = useSessionStatus(s => s)
-  const current = panelActive
-    ? undefined
-    : Object.values(list.byId).find(session => (session.retainedBy.mainView ?? 0) > 0)?.id
+  const main = Object.values(list.byId).find(session => (session.retainedBy.mainView ?? 0) > 0)?.id
+  const current = ordinaryCurrent(main, excluded, panelActive)
   const revealGroup = revealSessionId === undefined || !workspaceReady
     ? undefined
     : owningGroupKey(workspaces, revealSessionId)
@@ -398,22 +399,10 @@ function SessionTree({
       expandedGroups,
       ungroupedOrder: ungroupedSessionIds,
     })
-    if (excluded.size === 0) return nativeGroups
-    const liftedCounts = new Map<string, number>()
-    for (const id of excluded) {
-      const key = owningGroupKey(workspaces, id)
-      liftedCounts.set(key, (liftedCounts.get(key) ?? 0) + 1)
-    }
     // Filter rendered groups before calculating watermarks. Keep the complete
     // accounts for normal reordering so unpinning restores the saved position.
-    return nativeGroups.flatMap((group) => {
-      const count = liftedCounts.get(group.key)
-      if (count === undefined) return [group]
-      const sessionCount = group.sessionCount - count
-      if (group.key === UNGROUPED_KEY && sessionCount === 0) return []
-      return [{ ...group, sessionCount, sessions: group.sessions.filter(row => !excluded.has(row.id)) }]
-    })
-  }, [list, workspaces, rowState, statuses, expandedGroups, ungroupedSessionIds, excluded])
+    return excludeWatchedGroups(nativeGroups, workspaces, excluded, main)
+  }, [list, workspaces, rowState, statuses, expandedGroups, ungroupedSessionIds, excluded, main])
   useEffect(() => {
     for (let key = revealGroup; key !== undefined; key = parents.get(key)) {
       if (groupExpansion[key] === false || (key === revealGroup && groupExpansion[key] !== true)) {
@@ -966,7 +955,7 @@ export function WorkspaceBrowser({
   requestAddWorkspace,
   closeAddWorkspace,
   renderSlot, renderWatchedSlot, renderFactorySlot, useContextMenuTarget, useContextMenu,
-  t, watched, useWatched, useWatchedDrafts, useWatchMode, labelWatched,
+  t, watched, useWatched, useWatchedDrafts, useWatchMode, labelWatched, ordinaryListScope,
 }: WatchedBrowserProps) {
   const home = useHostInfo(info => info.home)
   const shortcuts = useShortcuts(rows => rows)
@@ -1145,6 +1134,10 @@ export function WorkspaceBrowser({
     ? visibleWatchedIds(list, archivedSessionIds, savedWatched) : [],
   [watchEnabled, savedWatched, list, archivedSessionIds])
   const excluded = useMemo(() => new Set(watchedIds), [watchedIds])
+  useLayoutEffect(() => {
+    ordinaryListScope.publish(wide ? { excludedIds: excluded, archiveFilter: archivedFilter } : undefined)
+  }, [ordinaryListScope, wide, excluded, archivedFilter])
+  useLayoutEffect(() => () => ordinaryListScope.publish(undefined), [ordinaryListScope])
   const watchedStatuses = useSessionStatus(status => status)
   const watchedDrafts = useWatchedDrafts(drafts => drafts)
   const watchedRows = useMemo(() => {

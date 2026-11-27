@@ -18,6 +18,7 @@ import { needsAttention } from './attention'
 import { WatchedBrowser, type RunRowAction } from './browser'
 import { connectDrafts, type DraftSource } from './drafts'
 import { LABELS, NS } from './labels'
+import { createOrdinaryListScope, excludeWatchedGroups, ordinaryCurrent } from './ordinary-list-scope'
 import { createRuntimeClient, formatDuration, type RuntimeClient } from './runtime'
 import { buildWatchModeCss, WatchModeOverlay, WatchModeSettings } from './watch-mode-settings'
 import { createWatchMode, WATCH_MODE_STORAGE_KEY, type WatchMode } from './watch-mode'
@@ -98,11 +99,12 @@ function mountBrowser(
       return
     }
     native = winner
+    const ordinaryListScope = createOrdinaryListScope()
     const unmount = ctx.slots.register({
       name: BROWSER_SLOT, priority: (winner.options.priority ?? 0) - 1,
       store: binding.store, locale: 'workspace',
       inject: () => ({
-        ...binding.injected, watched, labelWatched, runRowAction, runtime,
+        ...binding.injected, watched, labelWatched, runRowAction, runtime, ordinaryListScope,
         hooks: { ...binding.injected.hooks, watched, watchedDrafts: drafts, watchMode },
       }),
     }, WatchedBrowser)
@@ -133,7 +135,7 @@ function mountBrowser(
         return actions
       },
     })
-    disposeBrowser = () => { unmenu(); unmount() }
+    disposeBrowser = () => { ordinaryListScope.publish(undefined); unmenu(); unmount() }
   }
 
   const stop = ctx.slots.subscribe(BROWSER_SLOT, reconcile)
@@ -182,11 +184,14 @@ export function apply(ctx: Context): void {
 export const __test = {
   buildWatchModeCss,
   canWatch,
+  createOrdinaryListScope,
   createRuntimeClient,
   createWatchMode,
   createWatched,
+  excludeWatchedGroups,
   formatDuration,
   needsAttention,
+  ordinaryCurrent,
   WATCH_MODE_STORAGE_KEY,
   WatchedArea,
   WatchedBrowser,
